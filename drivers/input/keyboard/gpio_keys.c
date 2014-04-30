@@ -780,6 +780,11 @@ static int __devexit gpio_keys_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+/*OPPO yuyi 2014-03-22 add begin for delay button_backlight*/
+#ifdef CONFIG_VENDOR_EDIT
+int button_backlight = 0;
+#endif
+/*OPPO yuyi 2014-03-22 add end for delay button_backlight*/
 static int gpio_keys_suspend(struct device *dev)
 {
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
@@ -792,7 +797,11 @@ static int gpio_keys_suspend(struct device *dev)
 				enable_irq_wake(bdata->irq);
 		}
 	}
-
+/*OPPO yuyi 2014-03-22 add begin for delay button_backlight*/
+#ifdef CONFIG_VENDOR_EDIT
+	button_backlight = 0;
+#endif
+/*OPPO yuyi 2014-03-22 add end for delay button_backlight*/
 	return 0;
 }
 
@@ -810,6 +819,11 @@ static int gpio_keys_resume(struct device *dev)
 			gpio_keys_gpio_report_event(bdata);
 	}
 	input_sync(ddata->input);
+/*OPPO yuyi 2014-03-22 add begin for delay button_backlight*/
+#ifdef CONFIG_VENDOR_EDIT
+	button_backlight = 1;
+#endif
+/*OPPO yuyi 2014-03-22 add end for delay button_backlight*/
 
 	return 0;
 }
