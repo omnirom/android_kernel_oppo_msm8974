@@ -75,8 +75,8 @@ struct mt_device {
 	struct mt_class mtclass;	/* our mt device class */
 	unsigned last_field_index;	/* last field index of the report */
 	unsigned last_slot_field;	/* the last field of a slot */
-	__s8 inputmode;		/* InputMode HID feature, -1 if non-existent */
-	__s8 maxcontact_report_id;	/* Maximum Contact Number HID feature,
+	__s16 inputmode;		/* InputMode HID feature, -1 if non-existent */
+	__s16 maxcontact_report_id;	/* Maximum Contact Number HID feature,
 				   -1 if non-existent */
 	__u8 num_received;	/* how many contacts we received */
 	__u8 num_expected;	/* expected last contact index */
@@ -759,6 +759,10 @@ static const struct hid_device_id mt_devices[] = {
 		HID_USB_DEVICE(USB_VENDOR_ID_ATMEL,
 			USB_DEVICE_ID_ATMEL_MXT_DIGITIZER) },
 
+	/* Baanto multitouch devices */
+	{ .driver_data = MT_CLS_DEFAULT,
+		HID_USB_DEVICE(USB_VENDOR_ID_BAANTO,
+			USB_DEVICE_ID_BAANTO_MT_190W2) },
 	/* Cando panels */
 	{ .driver_data = MT_CLS_DUAL_INRANGE_CONTACTNUMBER,
 		HID_USB_DEVICE(USB_VENDOR_ID_CANDO,
@@ -911,6 +915,11 @@ static const struct hid_device_id mt_devices[] = {
 	{ .driver_data = MT_CLS_PANASONIC,
 		HID_USB_DEVICE(USB_VENDOR_ID_PANASONIC,
 			USB_DEVICE_ID_PANABOARD_UBT880) },
+
+	/* Novatek Panel */
+	{ .driver_data = MT_CLS_DEFAULT,
+		HID_USB_DEVICE(USB_VENDOR_ID_NOVATEK,
+			USB_DEVICE_ID_NOVATEK_PCT) },
 
 	/* PenMount panels */
 	{ .driver_data = MT_CLS_CONFIDENCE,
