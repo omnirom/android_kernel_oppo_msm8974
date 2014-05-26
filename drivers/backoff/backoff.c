@@ -11,6 +11,7 @@ static int backoff_pm_notify(struct notifier_block *b, unsigned long event, void
 {
         static struct timespec ts_entry, ts_exit;
 	static unsigned suspend_short_count = 0;
+	static unsigned cont_suspends = 1;
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
 	        getnstimeofday(&ts_entry);
@@ -22,12 +23,16 @@ static int backoff_pm_notify(struct notifier_block *b, unsigned long event, void
 			if (suspend_short_count == SUSPEND_BACKOFF_THRESHOLD) {
 				printk("%s: Backing off.\n",__func__);
 				wake_lock_timeout(&suspend_backoff_lock,
-					msecs_to_jiffies(SUSPEND_BACKOFF_INTERVAL));
+					msecs_to_jiffies(SUSPEND_BACKOFF_INTERVAL)*cont_suspends);
+				cont_suspends++;
+				if(cont_suspends > 4)
+					cont_suspends = 4;
 				suspend_short_count = 0;
 			}
 		}
 		else {
 			suspend_short_count = 0;
+			cont_suspends = 1;
 		}
 		break;
 	}
