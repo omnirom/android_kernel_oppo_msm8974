@@ -808,7 +808,7 @@ qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
 				INT_RT_STS(chip->usb_chgpth_base), rc);
 		return rc;
 	}
-	pr_debug("chgr usb sts 0x%x\n", usb_chgpth_rt_sts);
+	//pr_debug("chgr usb sts 0x%x\n", usb_chgpth_rt_sts);
 
 /* OPPO 2014-03-11 sjc Modify begin for OTG Vbus problem */
 #ifdef CONFIG_BQ24196_CHARGER
