@@ -3025,8 +3025,6 @@ get_prop_charge_type(struct qpnp_chg_chip *chip)
 /* OPPO 2013-10-18 wangjc Modify end */
 
 #define DEFAULT_CAPACITY	50
-/* OPPO 2013-10-18 wangjc Modify begin for use bq charger */
-#ifndef CONFIG_BQ24196_CHARGER
 static int
 get_batt_capacity(struct qpnp_chg_chip *chip)
 {
@@ -3044,6 +3042,8 @@ get_batt_capacity(struct qpnp_chg_chip *chip)
 	return DEFAULT_CAPACITY;
 }
 
+/* OPPO 2013-10-18 wangjc Modify begin for use bq charger */
+#ifndef CONFIG_BQ24196_CHARGER
 static int
 get_prop_batt_status(struct qpnp_chg_chip *chip)
 {
@@ -4531,6 +4531,7 @@ qpnp_eoc_work(struct work_struct *work)
 				}
 				chip->delta_vddmax_mv = 0;
 				qpnp_chg_set_appropriate_vddmax(chip);
+				chip->chg_display_full = true;//wangjc add for charge full
 				qpnp_chg_charge_en(chip, 0);
 				/* sleep for a second before enabling */
 				msleep(2000);
@@ -4639,10 +4640,17 @@ qpnp_eoc_work(struct work_struct *work)
 				if (qpnp_ext_charger && qpnp_ext_charger->chg_get_system_status)
 					bat_status = qpnp_ext_charger->chg_get_system_status();
 				if((bat_status & 0x30) == 0x30) {
-					pr_info("End of Charging when ibat>=0\n");
+					if (!chip->bat_is_cool && !chip->bat_is_warm) {
+						pr_info("End of Charging\n");
+						chip->chg_done = true;
+					} else {
+						pr_info("stop charging: battery is %s, vddmax = %d reached\n",
+							chip->bat_is_cool
+								? "cool" : "warm",
+							qpnp_chg_vddmax_get(chip));
+					}
 					chip->delta_vddmax_mv = 0;
 					qpnp_chg_set_appropriate_vddmax(chip);
-					chip->chg_done = true;
 					chip->chg_display_full = true;//wangjc add for charge full
 					qpnp_chg_charge_en(chip, 0);
 					power_supply_changed(&chip->batt_psy);
@@ -4656,10 +4664,17 @@ qpnp_eoc_work(struct work_struct *work)
 			}
 		} else {
 			if (count == CONSECUTIVE_COUNT) {
-				pr_info("End of Charging\n");
+				if (!chip->bat_is_cool && !chip->bat_is_warm) {
+					pr_info("End of Charging\n");
+					chip->chg_done = true;
+				} else {
+					pr_info("stop charging: battery is %s, vddmax = %d reached\n",
+						chip->bat_is_cool
+							? "cool" : "warm",
+						qpnp_chg_vddmax_get(chip));
+				}
 				chip->delta_vddmax_mv = 0;
 				qpnp_chg_set_appropriate_vddmax(chip);
-				chip->chg_done = true;
 				chip->chg_display_full = true;//wangjc add for charge full
 				qpnp_chg_charge_en(chip, 0);
 				/* sleep for a second before enabling */
