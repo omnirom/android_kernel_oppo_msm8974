@@ -2491,10 +2491,6 @@ int mdss_register_panel(struct platform_device *pdev,
 	struct platform_device *fb_pdev, *mdss_pdev;
 	struct device_node *node;
 	int rc = 0;
-#ifdef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2014/03/11  Add for Find7S continuous display can't close mdp clocks */
-    bool master_panel = true;
-#endif /*CONFIG_VENDOR_EDIT*/
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid device node\n");
@@ -2522,11 +2518,6 @@ int mdss_register_panel(struct platform_device *pdev,
 	fb_pdev = of_find_device_by_node(node);
 	if (fb_pdev) {
 		rc = mdss_fb_register_extra_panel(fb_pdev, pdata);
-#ifdef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2014/03/11  Add for Find7S continuous display can't close mdp clocks */
-        if (rc == 0)
-            master_panel = false;
-#endif /*CONFIG_VENDOR_EDIT*/
 	} else {
 		pr_info("adding framebuffer device %s\n", dev_name(&pdev->dev));
 		fb_pdev = of_platform_device_create(node, NULL,
@@ -2534,14 +2525,8 @@ int mdss_register_panel(struct platform_device *pdev,
 		fb_pdev->dev.platform_data = pdata;
 	}
 
-#ifndef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2014/03/11  Modify for Find7S continuous can't close mdp clocks */
 	if (mdp_instance->panel_register_done)
 		mdp_instance->panel_register_done(pdata);
-#else /*VENDOR_EDIT*/
-	if (master_panel && mdp_instance->panel_register_done)
-        mdp_instance->panel_register_done(pdata);
-#endif /*VENDOR_EDIT*/
 
 mdss_notfound:
 	of_node_put(node);
