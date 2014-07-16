@@ -19,7 +19,6 @@
 	dsi_jdi_1440_vid: qcom,dsi_jdi_1440p_video_0 {
 		compatible = "qcom,mdss-dsi-panel";
 		status = "ok";
-		qcom,cont-splash-enabled;
 		qcom,mdss-dsi-panel-name = "jdi 1440p video mode dsi panel1";
 		qcom,mdss-dsi-panel-manufacture = "JDI";
 		qcom,mdss-dsi-panel-version = "R63319";
@@ -192,7 +191,6 @@
 	dsi_jdi_1440_vid2: qcom,dsi_jdi_1440p_video_1 {
 		compatible = "qcom,mdss-dsi-panel2";
 		status = "ok";
-		qcom,cont-splash-enabled;
 		qcom,mdss-dsi-panel-name = "jdi 1440p video mode dsi panel2";
 		qcom,mdss-dsi-panel-manufacture = "JDI";
 		qcom,mdss-dsi-panel-version = "R63319";
