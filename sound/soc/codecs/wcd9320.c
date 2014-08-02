@@ -1573,7 +1573,7 @@ static int spkr_put_control(struct snd_kcontrol *kcontrol,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	unsigned int value;
 	value = ucontrol->value.integer.value[0];
-	printk("%s:val %d\n",__func__,value);
+	pr_debug("%s:val %d\n",__func__,value);
 	if(value){
 		//liuyan add for dvt
 		if(pcb_version>=HW_VERSION__12){
@@ -1614,7 +1614,7 @@ static int spkr_put_control(struct snd_kcontrol *kcontrol,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	unsigned int value;
 	value = ucontrol->value.integer.value[0];
-	printk("%s:val %d\n",__func__,value);
+	pr_debug("%s:val %d\n",__func__,value);
 	if(value){
         if(taiko->mbhc.mbhc_cfg->cdc_spk)
         {
