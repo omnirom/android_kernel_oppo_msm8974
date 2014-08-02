@@ -25,8 +25,15 @@
 #include <linux/slab.h>
 #include <linux/cpu.h>
 #include <linux/cpuquiet.h>
-#include <linux/earlysuspend.h>
 #include <linux/rq_stats.h>
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#endif
 
 static struct work_struct minmax_work;
 static struct work_struct cpu_core_state_work;
@@ -43,8 +50,13 @@ static unsigned int max_cpus = CONFIG_NR_CPUS;
 #define DEFAULT_SCREEN_OFF_CPU_CAP 2
 static unsigned int screen_off_max_cpus = DEFAULT_SCREEN_OFF_CPU_CAP;
 static bool screen_off_cap = false;
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_POWERSUSPEND)
+struct power_suspend cpuquiet_early_suspender;
+#endif
+#if defined(CONFIG_HAS_EARLYSUSPEND)
 struct early_suspend cpuquiet_early_suspender;
+#endif
 #endif
 static bool screen_off_cap_active = false;
 static bool is_suspended = false;
@@ -519,9 +531,15 @@ static int cpq_auto_sysfs(void)
 	return err;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_POWERSUSPEND)
+static void cpuquiet_early_suspend(struct power_suspend *h)
+#endif
+#if  defined(CONFIG_HAS_EARLYSUSPEND)
 static void cpuquiet_early_suspend(struct early_suspend *h)
+#endif
 {
+	pr_info(CPUQUIET_TAG "%s:\n", __func__);
 	is_suspended = true;
 	if (screen_off_cap){
 		pr_info(CPUQUIET_TAG "%s: limit to %d cores\n", __func__, screen_off_max_cpus);
@@ -530,8 +548,14 @@ static void cpuquiet_early_suspend(struct early_suspend *h)
 	}
 }
 
+#if defined(CONFIG_POWERSUSPEND)
+static void cpuquiet_late_resume(struct power_suspend *h)
+#endif
+#if  defined(CONFIG_HAS_EARLYSUSPEND)
 static void cpuquiet_late_resume(struct early_suspend *h)
+#endif
 {
+	pr_info(CPUQUIET_TAG "%s:\n", __func__);
 	is_suspended = false;	
 	if (screen_off_cap){
 		pr_info(CPUQUIET_TAG "%s: release limit to %d cores\n", __func__, screen_off_max_cpus);
@@ -559,12 +583,17 @@ int __init cpq_auto_hotplug_init(void)
 	if (err)
 		goto error;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	// will cap core num on screen off
 	cpuquiet_early_suspender.suspend = cpuquiet_early_suspend;
 	cpuquiet_early_suspender.resume = cpuquiet_late_resume;
+#if  defined(CONFIG_HAS_EARLYSUSPEND)
 	cpuquiet_early_suspender.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 100;
 	register_early_suspend(&cpuquiet_early_suspender);
+#endif
+#if defined(CONFIG_POWERSUSPEND)
+	register_power_suspend(&cpuquiet_early_suspender);
+#endif
 #endif
 	
 	enabled = true;
@@ -581,8 +610,13 @@ error:
 
 void __init cpq_auto_hotplug_exit(void)
 {
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if  defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&cpuquiet_early_suspender);
+#endif
+#if defined(CONFIG_POWERSUSPEND)
+	unregister_power_suspend(&cpuquiet_early_suspender);
+#endif
 #endif
 	cpuquiet_unregister_driver(&cpuquiet_driver);
 	kobject_put(auto_sysfs_kobject);
