@@ -4910,18 +4910,18 @@ static int synaptics_rmi4_resume(struct device *dev)
 	if(rmi4_data->pwrrunning)
 		return 0 ;
 
-	print_ts(TS_INFO, KERN_ERR "gesture status[0x%x,0x%x]\n", syna_use_gesture,rmi4_data->gesture_flags);
+	//print_ts(TS_INFO, KERN_ERR "gesture status[0x%x,0x%x]\n", syna_use_gesture,rmi4_data->gesture_flags);
 
 	//reset it
 	//synaptics_rmi4_i2c_write(rmi4_data,rmi4_data->f01_cmd_base_addr,&val,sizeof(val));
 	//msleep(200);
-	retval = synaptics_rmi4_reset_device(rmi4_data, rmi4_data->f01_cmd_base_addr);
+	/*retval = synaptics_rmi4_reset_device(rmi4_data, rmi4_data->f01_cmd_base_addr);
 	if (retval < 0) {
 		dev_err(dev,
 				"%s: Failed to issue TP reset command, error = %d\n",
 				__func__, retval);
 		return retval;
-	}
+	}*/
 
 	rmi4_data->pwrrunning = true ;
 
