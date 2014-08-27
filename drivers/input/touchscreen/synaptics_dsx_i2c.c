@@ -4299,12 +4299,14 @@ static int fb_notifier_callback(struct notifier_block *p,
 				break;
 
 			if(new_status != UNBLANK) {
-				print_ts(TS_DEBUG, KERN_ERR "[syna]:suspend tp\n");
+				print_ts(TS_INFO, KERN_ERR "[syna]:suspend start\n");
 				synaptics_rmi4_suspend(&(syna_rmi4_data->input_dev->dev));
+				print_ts(TS_INFO, KERN_ERR "[syna]:suspend end\n");
 			}
 			else {
-				print_ts(TS_DEBUG, KERN_ERR "[syna]:resume tp\n");
+				print_ts(TS_INFO, KERN_ERR "[syna]:resume start\n");
 				synaptics_rmi4_resume(&(syna_rmi4_data->input_dev->dev));
+				print_ts(TS_INFO, KERN_ERR "[syna]:resume end\n");
 			}
 			syna_rmi4_data->old_status = new_status;
 			break;
@@ -4819,6 +4821,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	unsigned char val=0;
 
+	pr_info("%s: start\n", __func__);
+
 	if(rmi4_data->pwrrunning)
 		return 0 ;
 
@@ -4885,6 +4889,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 	unsigned char val=1;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
+	pr_info("%s: start\n", __func__);
+
 	if(rmi4_data->pwrrunning)
 		return 0 ;
 
@@ -4923,12 +4929,10 @@ static int synaptics_rmi4_resume(struct device *dev)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to reinit device\n",
 				__func__);
-		rmi4_data->pwrrunning = false ;
-		return retval;
 	}
 
 	rmi4_data->pwrrunning = false ;
-	return 0;
+	return retval;
 }
 
 #ifndef CONFIG_FB
