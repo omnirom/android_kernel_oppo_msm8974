@@ -1338,6 +1338,14 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			if (dbs_tuners_ins.sync_freq == 0)
 				dbs_tuners_ins.sync_freq = policy->min;
 
+			for_each_possible_cpu(j) {
+				struct cpu_dbs_info_s *this_dbs_info =
+					&per_cpu(od_cpu_dbs_info, j);
+
+				this_dbs_info->sync_thread = kthread_run(dbs_sync_thread,
+					(void *)j,
+					"dbs_sync/%d", j);
+	        }
 			atomic_notifier_chain_register(&migration_notifier_head,
 					&dbs_migration_nb);
 		}
@@ -1376,6 +1384,13 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			atomic_notifier_chain_unregister(
 				&migration_notifier_head,
 				&dbs_migration_nb);
+
+			for_each_possible_cpu(j) {
+				struct cpu_dbs_info_s *this_dbs_info =
+					&per_cpu(od_cpu_dbs_info, j);
+
+				kthread_stop(this_dbs_info->sync_thread);
+			}
 		}
 
 		mutex_unlock(&dbs_mutex);
@@ -1443,10 +1458,6 @@ static int __init cpufreq_gov_dbs_init(void)
 
 		atomic_set(&this_dbs_info->src_sync_cpu, -1);
 		init_waitqueue_head(&this_dbs_info->sync_wq);
-
-		this_dbs_info->sync_thread = kthread_run(dbs_sync_thread,
-							 (void *)i,
-							 "dbs_sync/%d", i);
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_ondemand);
@@ -1461,7 +1472,6 @@ static void __exit cpufreq_gov_dbs_exit(void)
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);
 		mutex_destroy(&this_dbs_info->timer_mutex);
-		kthread_stop(this_dbs_info->sync_thread);
 	}
 	destroy_workqueue(dbs_wq);
 }
