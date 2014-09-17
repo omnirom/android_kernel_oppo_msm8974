@@ -411,12 +411,12 @@ int lm3630_bank_a_update_status(u32 bl_level)
 	int ret;
 	struct lm3630_chip_data *pchip = lm3630_pchip;
 	pr_debug("%s: bl=%d\n", __func__,bl_level);
-	
+
 	if(!pchip){
 		dev_err(pchip->dev, "lm3630_bank_a_update_status pchip is null\n");
 		return -ENOMEM;
 		}
-	
+
 
 	if (!pchip->regmap || !lm3630_pchip->regmap) {
 	  pr_err("%s YXQ pchip->regmap is NULL.\n", __func__);
@@ -438,7 +438,7 @@ int lm3630_bank_a_update_status(u32 bl_level)
 		if (ret < 0)
 			goto out;
 		mdelay(1);
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_VENDOR_EDIT
 /* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/24  Modify for backlight flick when disable pwm */
 		ret = regmap_write(pchip->regmap,
 				   REG_BRT_A, bl_level);
@@ -484,9 +484,9 @@ static int lm3630_dt(struct device *dev, struct lm3630_platform_data *pdata)
 {
 	u32 temp_val;
 	int rc;
-	struct device_node *np = dev->of_node;	
+	struct device_node *np = dev->of_node;
 //		dev_err(dev, "yanghai read \n");
-		
+
 		rc = of_property_read_u32(np, "ti,bank-a-ctrl", &temp_val);
 		if (rc) {
 			dev_err(dev, "Unable to read bank-a-ctrl\n");
@@ -544,7 +544,7 @@ static int lm3630_dt(struct device *dev, struct lm3630_platform_data *pdata)
 		} else{
 			pdata->pwm_period=temp_val;
 			}
-#if 0														
+#if 0
 	pdata->bank_b_ctrl=BANK_B_CTRL_DISABLE;
 	pdata->init_brt_led1=200;
 	pdata->init_brt_led2=200;
@@ -614,7 +614,7 @@ static int lm3630_probe(struct i2c_client *client,
 			return ret;
 	} else
 		pdata = client->dev.platform_data;
-	
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "fail : i2c functionality check...\n");
 		return -EOPNOTSUPP;
@@ -866,7 +866,7 @@ static struct i2c_driver lm3630_i2c_driver = {
 	.driver = {
 		  .name = LM3630_NAME,
 		  .owner	= THIS_MODULE,
-		  .of_match_table = lm3630_table,		   	
+		  .of_match_table = lm3630_table,
 		   },
 	.probe = lm3630_probe,
 	.remove = lm3630_remove,
