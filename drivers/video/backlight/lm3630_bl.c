@@ -438,7 +438,7 @@ int lm3630_bank_a_update_status(u32 bl_level)
 		if (ret < 0)
 			goto out;
 		mdelay(1);
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_VENDOR_EDIT
 /* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/24  Modify for backlight flick when disable pwm */
 		ret = regmap_write(pchip->regmap,
 				   REG_BRT_A, bl_level);
