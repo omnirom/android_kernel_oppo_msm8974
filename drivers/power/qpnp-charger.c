@@ -1778,9 +1778,15 @@ get_prop_authenticate(struct qpnp_chg_chip *chip)
 static int
 get_prop_fast_chg_started(struct qpnp_chg_chip *chip)
 {
-	if (qpnp_batt_gauge && qpnp_batt_gauge->fast_chg_started)
-		return qpnp_batt_gauge->fast_chg_started();
-	else {
+    int usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
+
+	if (qpnp_batt_gauge && qpnp_batt_gauge->fast_chg_started) {
+	    if (usb_present)
+		    return qpnp_batt_gauge->fast_chg_started();
+
+		pr_err("qpnp-charger fast_chg_started but !usb_present\n");
+		return false;
+	} else {
 		pr_err("qpnp-charger no batt gauge assuming false\n");
 		return false;
 	}
@@ -3144,16 +3150,9 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 
 /* OPPO 2013-12-22 liaofuchun add for fastchg*/
 #ifdef CONFIG_PIC1503_FASTCG
-	if(get_prop_fast_chg_started(chip) == true){
-		if (usb_present)
-			return POWER_SUPPLY_STATUS_CHARGING;
-		else {
-			pr_info("%s: get_prop_fast_chg_started = true but usb_present = false\n", __func__);
-			// TODO should be do something when we discover this?
-			return POWER_SUPPLY_STATUS_DISCHARGING;
-		}
-    }
-#endif
+	if(get_prop_fast_chg_started(chip) == true)
+		return POWER_SUPPLY_STATUS_CHARGING;
+#endif	
 /* OPPO 2013-12-22 liaofuchun add end*/
 	if (usb_present && chip->chg_display_full) {//wangjc add for charge full
 		return POWER_SUPPLY_STATUS_FULL;
@@ -3174,22 +3173,19 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 	}
 
 	if((status & 0x30) == 0x10) {
-		if (usb_present)
-			return POWER_SUPPLY_STATUS_CHARGING;
+		return POWER_SUPPLY_STATUS_CHARGING;
 	} else if((status & 0x30) == 0x20) {
-		if (usb_present)
-			return POWER_SUPPLY_STATUS_CHARGING;
+		return POWER_SUPPLY_STATUS_CHARGING;
 	} else if((status & 0x30) == 0x30) {
-		if (usb_present)
 #ifndef CONFIG_VENDOR_EDIT
 /* jingchun.wang@Onlinerd.Driver, 2014/02/12  Modify for msjudge full status */
-			return POWER_SUPPLY_STATUS_FULL;
+		return POWER_SUPPLY_STATUS_FULL;
 #else /*CONFIG_VENDOR_EDIT*/
-			return POWER_SUPPLY_STATUS_CHARGING;
+		return POWER_SUPPLY_STATUS_CHARGING;
 #endif /*CONFIG_VENDOR_EDIT*/
+	}else {
+		return POWER_SUPPLY_STATUS_DISCHARGING;
 	}
-
-	return POWER_SUPPLY_STATUS_DISCHARGING;
 }
 #endif
 /* OPPO 2013-10-18 wangjc Modify end */
