@@ -303,9 +303,11 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;
+#ifdef CONFIG_VENDOR_EDIT
 /* OPPO 2014-02-11 yxq add begin for Find7s */	
 	int index;
 /* OPPO 2014-02-11 yxq add end */
+#endif
 };
 
 int dsi_panel_device_register(struct device_node *pan_node,
