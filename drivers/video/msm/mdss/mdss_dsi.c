@@ -867,11 +867,8 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
-#ifndef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2013/12/26  Delete for panel had initialized */
 	WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
 		"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
-#endif /*CONFIG_VENDOR_EDIT*/
 
 	mdss_dsi_sw_reset(pdata);
 	mdss_dsi_host_init(pdata);
@@ -1682,62 +1679,11 @@ ctrl_pdata->index=index;
 			gpio_free(ctrl_pdata->disp_te_gpio);
 			return -ENODEV;
 		}
-//yanghai end for esd test
-	if (gpio_is_valid(28)) {
-
-		rc = gpio_tlmm_config(GPIO_CFG(
-				28, 0,
-				GPIO_CFG_INPUT,
-				GPIO_CFG_PULL_DOWN,
-				GPIO_CFG_2MA),
-				GPIO_CFG_ENABLE);
-
-		if (rc) {
-			pr_err("%s: unable to config esd to 28\n",
-				__func__);
-			gpio_free(28);
-			
-		}
-
-		}
-//yanghai end for esd test end
 		pr_err("%s: te_gpio=%d\n", __func__,
 					ctrl_pdata->disp_te_gpio);
 	}
 
-//yanghai add for cmd panel patch
-#ifdef CONFIG_VENDOR_EDIT
-// conifg msm gpio 28 to display ESDPIN
-		rc = gpio_request(28, "disp_esd");
-		if (rc) {
-			pr_err("yanghai request ESD gpio failed, rc=%d\n",
-			       rc);
-			gpio_free(28);
-			return -ENODEV;
-		}
-		rc = gpio_tlmm_config(GPIO_CFG(
-				28, 0,
-				GPIO_CFG_INPUT,
-				GPIO_CFG_PULL_DOWN,
-				GPIO_CFG_2MA),
-				GPIO_CFG_ENABLE);
 
-		if (rc) {
-			pr_err("%s: unable to ESD config tlmm = 28\n",
-				__func__);
-			gpio_free(28);
-			return -ENODEV;
-		}
-
-		rc = gpio_direction_input(28);
-		if (rc) {
-			pr_err("set_direction for ESD GPIO failed, rc=%d\n",
-			       rc);
-			gpio_free(28);
-			return -ENODEV;
-		}
-#endif
-//yanghai add end
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
