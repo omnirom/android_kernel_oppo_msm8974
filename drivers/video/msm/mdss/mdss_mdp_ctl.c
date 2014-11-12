@@ -1386,11 +1386,6 @@ static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-#ifdef CONFIG_VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/15  Add for find7s swap DSI port */
-extern int LCD_id;
-#endif /*VENDOR_EDIT*/
-
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				       struct msm_fb_data_type *mfd)
 {
@@ -1424,7 +1419,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 		else
 			ctl->intf_num = MDSS_MDP_INTF2;
 #else /*CONFIG_VENDOR_EDIT*/
-		if(get_pcb_version()>=22 || LCD_id == 4){
+		if(get_pcb_version()>=22){
 			if (pdata->panel_info.pdest == DISPLAY_1)
 				ctl->intf_num = MDSS_MDP_INTF2;
 			else
