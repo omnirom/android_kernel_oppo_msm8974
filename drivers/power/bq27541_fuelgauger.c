@@ -255,6 +255,7 @@ static int bq27541_remaining_capacity(struct bq27541_device_info *di)
 	return cap;
 }
 
+static int bq27541_battery_voltage(struct bq27541_device_info *di);
 static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 {
 	union power_supply_propval ret = {0,};
@@ -309,6 +310,13 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 				} else {
 					counter_temp = CAPACITY_SALTATE_COUNTER_NOT_CHARGING;///1
 				}
+				/* sjc1020, when batt_vol is too low(and soc is jumping), decrease faster to avoid dead battery shutdown */
+				if (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000 && di->soc_pre <= 10) {
+					if (bq27541_battery_voltage(di) <= 3300 * 1000 && bq27541_battery_voltage(di) > 2500 * 1000) {//check again
+						counter_temp = CAPACITY_SALTATE_COUNTER / 2;//about 6s
+					}
+				}
+				
 				if(di->saltate_counter < counter_temp)
 					return di->soc_pre;
 				else
@@ -326,7 +334,7 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 	else{
 		soc_calib = soc;
 	}
-	if(soc >= 100)
+	if(soc > 100)
 		soc_calib = 100;
 	di->soc_pre = soc_calib;
 	pr_debug("%s:%d, soc_calib:%d\n", __func__, soc, soc_calib);
@@ -1019,7 +1027,12 @@ static bool bq27541_authenticate(struct i2c_client *client)
 #define BATTERY_3000MA		1
 #define TYPE_INFO_LEN		8
 
-#ifndef CONFIG_OPPO_DEVICE_FIND7OP
+#if defined (CONFIG_OPPO_DEVICE_FIND7OP)
+static int bq27541_batt_type_detect(struct i2c_client *client)
+{
+	return BATTERY_3000MA;
+}
+#else //defined (CONFIG_OPPO_DEVICE_FIND7OP) || defined (CONFIG_OPPO_MSM_14021)
 /* jingchun.wang@Onlinerd.Driver, 2014/03/10  Modify for 14001 */
 static int bq27541_batt_type_detect(struct i2c_client *client)
 {
@@ -1047,13 +1060,8 @@ static int bq27541_batt_type_detect(struct i2c_client *client)
 	pr_info("%s battery_type:%d\n",__func__,rc);
 	return rc;
 }
-#else /*CONFIG_OPPO_DEVICE_FIND7OP*/
-static int bq27541_batt_type_detect(struct i2c_client *client)
-{
-	return BATTERY_3000MA;
-}
-#endif /*CONFIG_OPPO_DEVICE_FIND7OP*/
-#endif
+#endif //defined (CONFIG_OPPO_DEVICE_FIND7OP)
+#endif //CONFIG_VENDOR_EDIT
 
 /* OPPO 2013-12-12 liaofuchun add for fastchg */
 #ifdef CONFIG_PIC1503_FASTCG
@@ -1118,7 +1126,19 @@ static void fastcg_work_func(struct work_struct *work)
 	}
 
 	pr_err("%s recv data:0x%x\n", __func__, data);
-
+	
+	//lfc add for power_supply_changed NULL pointer when batt_psy unregistered
+	if(bq27541_di->batt_psy == NULL){
+		msleep(2);
+		gpio_tlmm_config(GPIO_CFG(1,0,GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),1);
+		gpio_direction_output(1, 0);
+		retval = request_irq(bq27541_di->irq, irq_rx_handler, IRQF_TRIGGER_RISING, "mcu_data", bq27541_di);	//0X01:rising edge,0x02:falling edge
+		if(retval < 0)
+			pr_err("%s request ap rx irq failed.\n", __func__);
+			
+		return ;
+	}
+		
 	if(data == 0x52) {
 		//request fast charging
 		wake_lock(&bq27541_di->fastchg_wake_lock);

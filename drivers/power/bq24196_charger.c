@@ -28,6 +28,7 @@
 //set charge parameter limit
 #define BQ24196_CHG_IBATMAX_MIN		512
 #define BQ24196_CHG_IBATMAX_MAX		2496
+#define BQ24196_CHG_IBATMAX_HRM		2048
 #define BQ24196_TERM_CURR_MIN		128
 #define BQ24196_TERM_CURR_MAX		2048
 #define BQ24196_CHG_IUSBMAX_MIN		100
@@ -124,12 +125,24 @@ bq24196_ibatmax_set(struct bq24196_device_info *di, int chg_current)
 		value <<= 2;
 		value |= 1;
 		return bq24196_chg_masked_write(di,CHARGE_CURRENT_CTRL,BQ24196_IBATMAX_BITS,value,1);
+	} else if(chg_current == 500) {
+		value = (2496 - BQ24196_CHG_IBATMAX_MIN)/64;
+		value <<= 2;
+		value |= 1;
+		return bq24196_chg_masked_write(di,CHARGE_CURRENT_CTRL,BQ24196_IBATMAX_BITS,value,1);
 	} else {
 		if ( (chg_current < BQ24196_CHG_IBATMAX_MIN)
 				|| (chg_current > BQ24196_CHG_IBATMAX_MAX) ) {
 			chg_current = BQ24196_CHG_IBATMAX_MIN;
 			pr_err("bad ibatmA=%d,default to 512mA\n", chg_current);
 		}
+
+#ifdef CONFIG_VENDOR_EDIT
+// Jingchun.Wang@Phone.Bsp.Driver, 2014/09/30  Add for avoid BATFET OCP when ibat<1024mA 
+		if(chg_current < 1024) {
+			chg_current = BQ24196_CHG_IBATMAX_HRM;
+		}
+#endif /*CONFIG_VENDOR_EDIT*/
 		
 
 		value = (chg_current - BQ24196_CHG_IBATMAX_MIN)/64;
@@ -251,7 +264,13 @@ static int
 bq24196_check_charge_timeout(struct bq24196_device_info *di,int hours)
 {
 	u8 value = 0;
-	
+
+#ifdef CONGIF_OPPO_CMCC_OPTR
+/* OPPO 2014-06-19 sjc Add for CMCC test: disable HW timer */
+	if (hours >= 1000)
+		return bq24196_chg_masked_write(di, CHARGE_TERM_TIMER_CTRL, 0x08, 0x0, 1);
+#endif
+
 	if( hours >= 20 )	//20 hours
 		value = 0x06;
 	else if( hours >= 12 )	//12 hours
@@ -354,11 +373,6 @@ bq24196_usb_suspend_enable(struct bq24196_device_info *di,int enable)
 	return bq24196_chg_masked_write(di,INPUT_SOURCE_CTRL,BQ24196_USB_SUSPEND_ENABLE_BITS,value,1);
 }
 
-static int bq24196_chg_get_charge_en(void)
-{
-	return bq24196_get_charge_en(bq24196_di);
-}
-
 static int bq24196_get_system_status(struct bq24196_device_info *di)
 {
 	char value_buf;
@@ -419,6 +433,11 @@ static int bq24196_chg_regs_reset(int reset)
 static int bq24196_chg_charge_en(int enable)
 {	
 	return bq24196_charge_en(bq24196_di,enable);
+}
+
+static int bq24196_chg_get_charge_en(void)
+{
+	return bq24196_get_charge_en(bq24196_di);
 }
 
 static int bq24196_chg_get_system_status(void)
