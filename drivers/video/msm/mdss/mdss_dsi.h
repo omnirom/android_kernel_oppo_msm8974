@@ -269,6 +269,9 @@ struct mdss_dsi_ctrl_pdata {
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
+#ifdef CONFIG_VENDOR_EDIT
+	int lcd_5v_en_gpio;
+#endif
 	int rst_gpio;
 	int disp_en_gpio;
 	int disp_te_gpio;
@@ -316,11 +319,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_buf rx_buf;
 	struct dsi_buf status_buf;
 	int status_mode;
-#ifdef CONFIG_VENDOR_EDIT
-/* OPPO 2014-02-11 yxq add begin for Find7s */	
-	int index;
-/* OPPO 2014-02-11 yxq add end */
-#endif
 };
 
 struct dsi_status_data {

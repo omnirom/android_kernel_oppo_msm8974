@@ -273,24 +273,29 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 static void mdss_fb_parse_dt(struct msm_fb_data_type *mfd)
 {
 	u32 data[2] = {0};
-	u32 panel_xres = mfd->panel_info->xres;
+	u32 panel_xres;
 	struct platform_device *pdev = mfd->pdev;
 
-	if (mfd->split_display)
-		panel_xres *= 2;
+	of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,mdss-fb-split", data, 2);
 
-	of_property_read_u32_array(pdev->dev.of_node, "qcom,mdss-fb-split",
-				       data, 2);
-    if (data[0] && data[1] &&
-	    panel_xres == (data[0] + data[1])) {
-		mfd->split_fb_left = data[0];
-		mfd->split_fb_right = data[1];
-		pr_info("split framebuffer left=%d right=%d\n",
-			mfd->split_fb_left, mfd->split_fb_right);
+	panel_xres = mfd->panel_info->xres;
+	if (data[0] && data[1]) {
+		if (mfd->split_display)
+			panel_xres *= 2;
+
+		if (panel_xres == data[0] + data[1]) {
+			mfd->split_fb_left = data[0];
+			mfd->split_fb_right = data[1];
+		}
 	} else {
-		mfd->split_fb_left = 0;
-		mfd->split_fb_right = 0;
+		if (mfd->split_display)
+			mfd->split_fb_left = mfd->split_fb_right = panel_xres;
+		else
+			mfd->split_fb_left = mfd->split_fb_right = 0;
 	}
+	pr_info("split framebuffer left=%d right=%d\n",
+		mfd->split_fb_left, mfd->split_fb_right);
 }
 
 static ssize_t mdss_fb_get_split(struct device *dev,
@@ -1205,6 +1210,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		}
 	} else {
 		pr_err("No IOMMU Domain");
+		rc = -EINVAL;
 		goto fb_mmap_failed;
 
 	}

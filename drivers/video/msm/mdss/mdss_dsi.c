@@ -27,12 +27,6 @@
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
 
-#ifdef CONFIG_VENDOR_EDIT
-/* OPPO 2014-02-10 yxq Added begin for Find7S */
-#include <linux/pcb_version.h>
-/* OPPO 2014-02-10 yxq Added end */
-#endif /*CONFIG_VENDOR_EDIT*/
-
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -143,28 +137,11 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 	of_node = dev->of_node;
 
 	mp->num_vreg = 0;
-#ifndef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2014/02/10  Modify for Find7S */
 	for_each_child_of_node(of_node, supply_node) {
 		if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
 						26))
 			++mp->num_vreg;
 	}
-#else /*CONFIG_VENDOR_EDIT*/
-	if (get_pcb_version() < HW_VERSION__20) { /* For Find7 */
-        for_each_child_of_node(of_node, supply_node) {
-            if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
-                            26))
-                ++mp->num_vreg;
-        }
-	} else { /* For Find7S */
-        for_each_child_of_node(of_node, supply_node) {
-            if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
-                            26) && strncmp(supply_node->name, "qcom,platform-supply-entry1", 27))
-                ++mp->num_vreg;
-        }
-	}
-#endif /*CONFIG_VENDOR_EDIT*/
 	if (mp->num_vreg == 0) {
 		pr_debug("%s: no vreg\n", __func__);
 		goto novreg;
@@ -184,14 +161,6 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
 						26)) {
 			const char *st = NULL;
-#ifdef CONFIG_VENDOR_EDIT
-            /* Xinqin.Yang@PhoneSW.Driver, 2014/02/10  Add for Find7S */
-            if (get_pcb_version() >= HW_VERSION__20) {
-                if (!strncmp(supply_node->name, "qcom,platform-supply-entry1", 27)){
-                    continue;
-                }
-            }
-#endif /*CONFIG_VENDOR_EDIT*/
 			/* vreg-name */
 			rc = of_property_read_string(supply_node,
 				"qcom,supply-name", &st);
@@ -1427,9 +1396,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	bool dynamic_fps;
 	const char *data;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
-#ifdef CONFIG_VENDOR_EDIT
-	u32 index;
-#endif
+
 	mipi  = &(pinfo->mipi);
 
 	pinfo->type =
@@ -1552,126 +1519,100 @@ int dsi_panel_device_register(struct device_node *pan_node,
 
 	pinfo->panel_max_fps = mdss_panel_get_framerate(pinfo);
 	pinfo->panel_max_vtotal = mdss_panel_get_vtotal(pinfo);
+	ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-enable-gpio", 0);
 
-#ifdef CONFIG_VENDOR_EDIT
-/* OPPO 2014-02-11 yxq add begin for Find7S */
-	rc = of_property_read_u32(ctrl_pdev->dev.of_node,
-				  "cell-index", &index);
-	if (rc) {
-		pr_err("%s: Cell-index not specified, rc=%d\n",
-			__func__, rc);		
-
-	}
-	ctrl_pdata->index=index;
-	if (index == 0) {
-/* OPPO 2014-02-11 yxq add end */
-#endif
-		ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
-			"qcom,platform-enable-gpio", 0);
-
-		if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
-			pr_err("%s:%d, Disp_en gpio not specified\n",
+	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
+		pr_err("%s:%d, Disp_en gpio not specified\n",
 						__func__, __LINE__);
 
-#ifdef CONFIG_VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/03/13  Add for Find7s enable display -5v */
-		if(get_pcb_version() >= HW_VERSION__20){
-			if(gpio_is_valid(46)){
-				pr_err("config gpio 46 LCD -5v \n");
-				rc = gpio_request(46, "LCD_enable_-5v");
-				rc = gpio_tlmm_config(GPIO_CFG(
-						46, 0,
-						GPIO_CFG_OUTPUT,
-						GPIO_CFG_NO_PULL,
-						GPIO_CFG_8MA),
-						GPIO_CFG_DISABLE);
-
-				if (rc) {
-					pr_err("%s: unable to config gpio 46\n",
-						__func__);
-					gpio_free(46);	
-				}
-			}
-		}
-
-#endif /*VENDOR_EDIT*/
-	
-		if (pinfo->type == MIPI_CMD_PANEL) {
-			ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+	if (pinfo->type == MIPI_CMD_PANEL) {
+		ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 						"qcom,platform-te-gpio", 0);
-			if (!gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
-				pr_err("%s:%d, Disp_te gpio not specified\n",
+		if (!gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+			pr_err("%s:%d, Disp_te gpio not specified\n",
 						__func__, __LINE__);
-			}
 		}
-#ifndef CONFIG_VENDOR_EDIT
-//yanghai modify for cmd panel patch
-		if (gpio_is_valid(ctrl_pdata->disp_te_gpio) &&
+	}
+
+	if (gpio_is_valid(ctrl_pdata->disp_te_gpio) &&
 					pinfo->type == MIPI_CMD_PANEL) {
-#else
-    	if (gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
-#endif					
-			rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
-			if (rc) {
-				pr_err("request TE gpio failed, rc=%d\n",
-				       rc);
-				return -ENODEV;
-			}
-			rc = gpio_tlmm_config(GPIO_CFG(
+		rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
+		if (rc) {
+			pr_err("request TE gpio failed, rc=%d\n",
+			       rc);
+			return -ENODEV;
+		}
+		rc = gpio_tlmm_config(GPIO_CFG(
 				ctrl_pdata->disp_te_gpio, 1,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_2MA),
 				GPIO_CFG_ENABLE);
 
-			if (rc) {
-				pr_err("%s: unable to config tlmm = %d\n",
-					__func__, ctrl_pdata->disp_te_gpio);
-				gpio_free(ctrl_pdata->disp_te_gpio);
-				return -ENODEV;
-			}
-
-			rc = gpio_direction_input(ctrl_pdata->disp_te_gpio);
-			if (rc) {
-				pr_err("set_direction for disp_en gpio failed, rc=%d\n",
-				       rc);
-				gpio_free(ctrl_pdata->disp_te_gpio);
-				return -ENODEV;
-			}
-			pr_err("%s: te_gpio=%d\n", __func__,
-					ctrl_pdata->disp_te_gpio);
+		if (rc) {
+			pr_err("%s: unable to config tlmm = %d\n",
+				__func__, ctrl_pdata->disp_te_gpio);
+			gpio_free(ctrl_pdata->disp_te_gpio);
+			return -ENODEV;
 		}
 
+		rc = gpio_direction_input(ctrl_pdata->disp_te_gpio);
+		if (rc) {
+			pr_err("set_direction for disp_en gpio failed, rc=%d\n",
+			       rc);
+			gpio_free(ctrl_pdata->disp_te_gpio);
+			return -ENODEV;
+		}
+		pr_debug("%s: te_gpio=%d\n", __func__,
+					ctrl_pdata->disp_te_gpio);
+	}
 
-		ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
-		if (!gpio_is_valid(ctrl_pdata->rst_gpio))
-			pr_err("%s:%d, reset gpio not specified\n",
+	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
+		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 
-		if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
+	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
 
-			ctrl_pdata->mode_gpio = of_get_named_gpio(
+		ctrl_pdata->mode_gpio = of_get_named_gpio(
 					ctrl_pdev->dev.of_node,
 					"qcom,platform-mode-gpio", 0);
-			if (!gpio_is_valid(ctrl_pdata->mode_gpio))
-				pr_info("%s:%d, mode gpio not specified\n",
+		if (!gpio_is_valid(ctrl_pdata->mode_gpio))
+			pr_info("%s:%d, mode gpio not specified\n",
 							__func__, __LINE__);
-		} else {
-			ctrl_pdata->mode_gpio = -EINVAL;
-		}
-#ifdef CONFIG_VENDOR_EDIT
-/* OPPO 2014-02-21 yxq add begin for Find7S */
 	} else {
-		ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
-			"qcom,platform-te-gpio", 0);
-		ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
-			 "qcom,platform-reset-gpio", 0);
-		ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
-			"qcom,platform-enable-gpio", 0);
+		ctrl_pdata->mode_gpio = -EINVAL;
 	}
-/* OPPO 2014-02-11 yxq add end */
+
+#ifdef CONFIG_VENDOR_EDIT
+	ctrl_pdata->lcd_5v_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			  "qcom,platform-lcd-5v-en-gpio", 0);
+	if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio)) {
+		rc = gpio_request(ctrl_pdata->lcd_5v_en_gpio, "lcd_5v_en");
+		if (rc) {
+			pr_err("request LCD 5V EN gpio failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = gpio_tlmm_config(GPIO_CFG(
+					ctrl_pdata->lcd_5v_en_gpio, 0,
+					GPIO_CFG_OUTPUT,
+					GPIO_CFG_NO_PULL,
+					GPIO_CFG_8MA),
+				GPIO_CFG_DISABLE);
+		if (rc) {
+			pr_err("%s: unable to config tlmm = %d\n",
+					__func__, ctrl_pdata->lcd_5v_en_gpio);
+			gpio_free(ctrl_pdata->lcd_5v_en_gpio);
+			return -ENODEV;
+		}
+	} else {
+		pr_err("%s:%d, lcd 5v en gpio not specified\n",
+						__func__, __LINE__);
+	}
 #endif
+
 	if (mdss_dsi_clk_init(ctrl_pdev, ctrl_pdata)) {
 		pr_err("%s: unable to initialize Dsi ctrl clks\n", __func__);
 		return -EPERM;
