@@ -303,6 +303,8 @@ struct synaptics_rmi4_data {
 	unsigned char bcontinue;
 	struct workqueue_struct *reportqueue;  //for work queue
 	struct work_struct reportwork;
+        struct delayed_work  speed_up_work;//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture  
+        struct workqueue_struct *speedup_resume_wq;
 };
 
 enum exp_fn {
