@@ -45,6 +45,7 @@
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
 #endif
+#include <linux/wakelock.h>
 
 #define DRIVER_NAME "synaptics-rmi-ts"
 #define INPUT_PHYS_NAME "synaptics-rmi-ts/input0"
@@ -54,7 +55,6 @@
 #endif
 
 #define NO_0D_WHILE_2D
-#define REPORT_2D_Z
 #define REPORT_2D_W
 
 /*
@@ -105,6 +105,24 @@ char *tp_firmware_strings[TP_TYPE_MAX][LCD_TYPE_MAX] = {
 #define NO_SLEEP_OFF (0 << 2)
 #define NO_SLEEP_ON (1 << 2)
 #define CONFIGURED (1 << 7)
+
+/*************** log definition **********************************/
+#define TS_ERROR   1
+#define TS_WARNING 2
+#define TS_INFO    3
+#define TS_DEBUG   4
+#define TS_TRACE   5
+static int syna_log_level = TS_INFO;
+#define print_ts(level, ...) \
+	do { \
+		if (syna_log_level >= (level)) \
+		printk(__VA_ARGS__); \
+	} while (0) 
+/*****************************************************************/
+
+static struct wake_lock tp_wake_lock;
+static void speedup_synaptics_resume(struct work_struct *work); //mingqiang.guo add for LCD show later when push power button  and  two click  in gesture  
+static DEFINE_SEMAPHORE(work_sem);
 
 static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr, unsigned char *data,
@@ -294,9 +312,6 @@ struct synaptics_rmi4_f12_finger_data {
 	unsigned char x_msb;
 	unsigned char y_lsb;
 	unsigned char y_msb;
-#ifdef REPORT_2D_Z
-	unsigned char z;
-#endif
 #ifdef REPORT_2D_W
 	unsigned char wx;
 	unsigned char wy;
@@ -968,9 +983,8 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 #ifndef TYPE_B_PROTOCOL
 			input_mt_sync(rmi4_data->input_dev);
 #endif
-
-			dev_dbg(&rmi4_data->i2c_client->dev,
-					"%s: Finger %d:\n"
+			print_ts(TS_DEBUG, KERN_ERR
+			        "%s: Finger %d:\n"
 					"status = 0x%02x\n"
 					"x = %d\n"
 					"y = %d\n"
@@ -1068,20 +1082,6 @@ extern int rmi4_fw_module_init(bool insert);
 #define F54_CMD_BASE_ADDR		(syna_rmi4_data->f54_cmd_base_addr)
 #define F54_DATA_BASE_ADDR		(syna_rmi4_data->f54_data_base_addr)
 
-/*************** log definition **********************************/
-#define TS_ERROR   1
-#define TS_WARNING 2
-#define TS_INFO    3
-#define TS_DEBUG   4
-#define TS_TRACE   5
-static int syna_log_level = TS_INFO;
-#define print_ts(level, ...) \
-	do { \
-		if (syna_log_level >= (level)) \
-		printk(__VA_ARGS__); \
-	} while (0) 
-/*****************************************************************/
-
 static struct synaptics_rmi4_data *syna_rmi4_data=0;
 static struct regulator *vdd_regulator=0;
 static struct regulator *vdd_regulator_i2c=0;
@@ -1133,7 +1133,7 @@ static void vk_calculate_area(void)  //added by liujun
 	print_ts(TS_DEBUG, KERN_ERR "maxx=%d,maxy=%d,vkh=%d\n",syna_ts_data->sensor_max_x,syna_ts_data->sensor_max_y,syna_ts_data->virtual_key_height);
 
 	syna_ts_data->vk_prop_width = LCD_MULTI_RATIO(190);
-	if (get_pcb_version() <= HW_VERSION__20) {
+	if (get_pcb_version() < HW_VERSION__20) {
 		syna_ts_data->vk_prop_center_y = LCD_MULTI_RATIO(1974);
 		syna_ts_data->vk_prop_height = LCD_MULTI_RATIO(120);
 	} else {
@@ -1214,7 +1214,7 @@ static int get_virtual_key_button(int x, int y)
 	int i;
 	int lcdheight = LCD_MAX_Y ;
 
-	if (get_pcb_version() > HW_VERSION__20)
+	if (get_pcb_version() >= HW_VERSION__20)
 		lcdheight = LCD_MAX_Y_FIND7S ;
 
 	if(y <= lcdheight)
@@ -2150,7 +2150,7 @@ static ssize_t synaptics_rmi4_baseline_data(char *buf, bool savefile)
 	//mingqiang.guo@phone.bsp modify  only 13077 wintk and tpk use different channels,  tpk: data_buf[4]==0xff wintek :  data_buf[4]==0xfe
 	print_ts(TS_DEBUG, "%d: syna_ts_data->vendor_id=%d,data_buf[4]=%d\n",__LINE__,syna_ts_data->vendor_id,data_buf[4]);
 
-	if (get_pcb_version() <= HW_VERSION__20)  //find7
+	if (get_pcb_version() < HW_VERSION__20)  //find7
 	{
 		if((data_buf[0]==0xff) && (data_buf[1]==0xff) && (data_buf[2]==0xff)
 				&&((data_buf[3]&0x0f) == 0x0f)  && ((data_buf[5]&0x7f) == 0x7f) )
@@ -2522,9 +2522,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	int wx;
 	int wy;
 	int temp;
-#ifdef REPORT_2D_Z
-	int z;
-#endif
 	struct synaptics_rmi4_f12_extra_data *extra_data;
 	struct synaptics_rmi4_f12_finger_data *data;
 	struct synaptics_rmi4_f12_finger_data *finger_data;
@@ -2585,6 +2582,8 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 				SYNA_ADDR_GESTURE_EXT,
 				gestureext,
 				sizeof(gestureext));
+		if (gesture[0] != 0)
+		   wake_lock_timeout(&tp_wake_lock, 5 * HZ);
 		if(gesture[0]) {
 			keyvalue = synaptics_rmi4_update_gesture2(gesture,gestureext);
 			if(syna_use_gesture2 && keyvalue)
@@ -2595,7 +2594,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 				input_report_key(rmi4_data->input_dev, keyvalue, 0);
 				input_sync(rmi4_data->input_dev);
 			}
-			print_ts(TS_ERROR, KERN_ERR "[syna]gesture: %2x %2x %2x %2x %2x\n",gesture[0],gesture[1],gesture[2],gesture[3],gesture[4]);
+			print_ts(TS_DEBUG, KERN_ERR "[syna]gesture: %2x %2x %2x %2x %2x\n",gesture[0],gesture[1],gesture[2],gesture[3],gesture[4]);
 			print_ts(TS_DEBUG, KERN_ERR "[syna]gestureext: %2x %2x %2x %2x %2x %2x %2x %2x %2x\n",
 					gestureext[0],gestureext[1],gestureext[2],gestureext[3],gestureext[4],gestureext[5],gestureext[6],gestureext[7],gestureext[24]);
 		}
@@ -2629,10 +2628,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 		if (finger_status) {
 			x = (finger_data->x_msb << 8) | (finger_data->x_lsb);
 			y = (finger_data->y_msb << 8) | (finger_data->y_lsb);
-#ifdef REPORT_2D_Z
-			// The presssure from the sensor is weak, *4
-			z = finger_data->z << 2;
-#endif
 #ifdef REPORT_2D_W
 			wx = finger_data->wx;
 			wy = finger_data->wy;
@@ -2675,10 +2670,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 					ABS_MT_POSITION_X, x);
 			input_report_abs(rmi4_data->input_dev,
 					ABS_MT_POSITION_Y, y);
-#ifdef REPORT_2D_Z
-			input_report_abs(rmi4_data->input_dev,
-					ABS_MT_PRESSURE, z);
-#endif
 #ifdef REPORT_2D_W
 			input_report_abs(rmi4_data->input_dev,
 					ABS_MT_TOUCH_MAJOR, max(wx, wy));
@@ -2897,6 +2888,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 
 	rmi = &(rmi4_data->rmi4_mod_info);
 
+	down(&work_sem);
 	/*
 	 * Get interrupt status information from F01 Data1 register to
 	 * determine the source(s) that are flagging the interrupt.
@@ -2909,6 +2901,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to read interrupt status\n",
 				__func__);
+		up(&work_sem);
 		return;
 	}
 
@@ -2921,6 +2914,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 					"%s: Failed to reinit device\n",
 					__func__);
 		}
+		up(&work_sem);
 		return;
 	}
 
@@ -2954,6 +2948,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	}
 	mutex_unlock(&exp_data.mutex);
 
+	up(&work_sem);
 	return;
 }
 
@@ -3275,9 +3270,6 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 	}
 
 	rmi4_data->report_enable = RPT_DEFAULT;
-#ifdef REPORT_2D_Z
-	rmi4_data->report_enable |= RPT_Z;
-#endif
 #ifdef REPORT_2D_W
 	rmi4_data->report_enable |= (RPT_WX | RPT_WY);
 #endif
@@ -4314,7 +4306,7 @@ static void synaptics_rmi4_get_vendorid(struct synaptics_rmi4_data *rmi4_data) {
 #ifdef CONFIG_OPPO_DEVICE_FIND7OP
 	vendor_id = synaptics_rmi4_get_vendorid1(gpio_get_value(rmi4_data->id_gpio),gpio_get_value(rmi4_data->wakeup_gpio),0);
 #else
-	if (get_pcb_version() >= HW_VERSION__21)
+	if (get_pcb_version() >= HW_VERSION__20)
 		vendor_id = synaptics_rmi4_get_vendorid1(gpio_get_value(rmi4_data->id_gpio),gpio_get_value(rmi4_data->wakeup_gpio),0);
 	else
 		vendor_id = synaptics_rmi4_get_vendorid2(gpio_get_value(rmi4_data->id_gpio),gpio_get_value(rmi4_data->wakeup_gpio),0);
@@ -4322,7 +4314,7 @@ static void synaptics_rmi4_get_vendorid(struct synaptics_rmi4_data *rmi4_data) {
 
 	rmi4_data->vendor_id = vendor_id;
 	synaptics_rmi4_get_vendorstring(rmi4_data->vendor_id, lcd_type_id);
-	print_ts(TS_INFO, KERN_ERR "[syna] vendor id: %x version: %s\n", vendor_id, synaptics_vendor_str);
+	print_ts(TS_INFO, KERN_ERR "[syna] pcb_version: %d vendor id: %x version: %s\n", get_pcb_version(), vendor_id, synaptics_vendor_str);
 
 }
 
@@ -4424,14 +4416,12 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;
 
 	//init sensor size
-	if (get_pcb_version() <= HW_VERSION__20) {
+	if (get_pcb_version() < HW_VERSION__20) {
 		rmi4_data->virtual_key_height = 114;
 		rmi4_data->sensor_max_x = LCD_MAX_X ;
 		rmi4_data->sensor_max_y = LCD_MAX_Y+120 ;
 		syna_lcd_ratio1 = 100 ;
 		syna_lcd_ratio2 = 100 ;
-		if(get_pcb_version() == HW_VERSION__20)
-			syna_lcd_ratio1 = 135 ;
 	} else {
 		rmi4_data->virtual_key_height = 142;
 		rmi4_data->sensor_max_x = LCD_MAX_X_FIND7S ;
@@ -4540,6 +4530,11 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	//add work queue init
 	rmi4_data->reportqueue = create_singlethread_workqueue("synaptics_wq");
 	INIT_WORK(&rmi4_data->reportwork, synaptics_rmi4_report_work);
+
+	//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture     
+	rmi4_data->speedup_resume_wq = create_singlethread_workqueue("speedup_resume_wq");
+	INIT_DELAYED_WORK(&rmi4_data->speed_up_work,speedup_synaptics_resume);
+	wake_lock_init(&tp_wake_lock, WAKE_LOCK_SUSPEND, "tp_gesture");
 
 	retval = synaptics_rmi4_irq_enable(rmi4_data, true);
 	if (retval < 0) {
@@ -4863,6 +4858,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if(rmi4_data->pwrrunning)
 		return 0 ;
 
+	down(&work_sem);
 	rmi4_data->pwrrunning = true ;
 
 	if(rmi4_data->smartcover_enable)
@@ -4874,15 +4870,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	synaptics_enable_gesture(rmi4_data,true);
 	synaptics_enable_pdoze(rmi4_data,true);
 
-	if(rmi4_data->gesture || rmi4_data->pdoze_enable) {
+	if((rmi4_data->gesture && syna_use_gesture) || rmi4_data->pdoze_enable) {
 		synaptics_enable_irqwake(rmi4_data,true);
-		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_OUT;
 	}
 
 	if (rmi4_data->staying_awake) {
-		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_OUT;
 	}
 
 	if (!rmi4_data->sensor_sleep) {
@@ -4893,7 +4887,9 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
 
+GO_OUT:
 	rmi4_data->pwrrunning = false ;
+	up(&work_sem);
 	return 0;
 }
 
@@ -4922,14 +4918,34 @@ void synaptics_rmi4_sync_lcd_resume(void) {
  */
 static int synaptics_rmi4_resume(struct device *dev)
 {
+	//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture   
+	queue_delayed_work(syna_rmi4_data->speedup_resume_wq, &syna_rmi4_data->speed_up_work, msecs_to_jiffies(10));
+	msleep(50);
+	return 0;
+}
+
+//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture
+static void speedup_synaptics_resume(struct work_struct *work)
+{
 	int retval;
 	unsigned char val=1;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	struct synaptics_rmi4_data *rmi4_data = syna_rmi4_data; 
 
 	if(rmi4_data->pwrrunning)
-		return 0 ;
+		return;
+
+	down(&work_sem);
+	synaptics_set_int_mask(syna_rmi4_data, 0);//mingqiang.guo add for black gesture failure
 
 	rmi4_data->pwrrunning = true ;
+
+#ifndef CONFIG_OPPO_DEVICE_FIND7OP
+	if (get_pcb_version() >= HW_VERSION__20){
+	    //software reset it
+	    synaptics_rmi4_i2c_write(rmi4_data,rmi4_data->f01_cmd_base_addr,&val,sizeof(val));
+	    msleep(200);
+	}
+#endif
 
 	if(rmi4_data->smartcover_enable)
 		synaptics_rmi4_open_smartcover();
@@ -4937,23 +4953,19 @@ static int synaptics_rmi4_resume(struct device *dev)
 	if(rmi4_data->glove_enable)
 		synaptics_rmi4_i2c_write(syna_rmi4_data,SYNA_ADDR_GLOVE_FLAG,&val,sizeof(val));
 
-	if(rmi4_data->gesture || rmi4_data->pdoze_enable) {
+	if((rmi4_data->gesture && syna_use_gesture)|| rmi4_data->pdoze_enable) {
 		synaptics_enable_gesture(rmi4_data,false);
 		synaptics_enable_pdoze(rmi4_data,false);
 		synaptics_enable_irqwake(rmi4_data,false);
-		rmi4_data->pwrrunning = false ;
-		synaptics_rmi4_free_fingers(rmi4_data);
-		return 0;
+		goto GO_RETURN;
 	}
 
 	if (rmi4_data->staying_awake) {
-		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_RETURN;
 	}
 
 	if (!rmi4_data->sensor_sleep) {
-		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_RETURN;
 	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
@@ -4964,12 +4976,14 @@ static int synaptics_rmi4_resume(struct device *dev)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to reinit device\n",
 				__func__);
-		rmi4_data->pwrrunning = false ;
-		return retval;
+		goto GO_RETURN;
 	}
 
+
+GO_RETURN:
 	rmi4_data->pwrrunning = false ;
-	return 0;
+	synaptics_set_int_mask(syna_rmi4_data, 1);//mingqiang.guo add for black gesture failure
+	up(&work_sem);
 }
 
 #ifndef CONFIG_FB
