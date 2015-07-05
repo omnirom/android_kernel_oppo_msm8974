@@ -122,6 +122,8 @@ static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short f01_cmd_base_addr);
 static inline void wait_test_cmd_finished(void);
+static void speedup_synaptics_resume(struct work_struct *work); //mingqiang.guo add for LCD show later when push power button  and  two click  in gesture  
+static DEFINE_SEMAPHORE(work_sem);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
@@ -2903,6 +2905,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 
 	rmi = &(rmi4_data->rmi4_mod_info);
 
+	down(&work_sem);
 	/*
 	 * Get interrupt status information from F01 Data1 register to
 	 * determine the source(s) that are flagging the interrupt.
@@ -2915,6 +2918,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to read interrupt status\n",
 				__func__);
+		up(&work_sem);
 		return;
 	}
 
@@ -2927,6 +2931,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 					"%s: Failed to reinit device\n",
 					__func__);
 		}
+		up(&work_sem);
 		return;
 	}
 
@@ -2936,6 +2941,10 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	 */
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
+        		if (list_empty(&rmi->support_fn_list)) {                                                            
+				up(&work_sem);
+				return;
+			}
 			if (fhandler->num_of_data_sources) {
 				if (fhandler->intr_mask &
 						intr[fhandler->intr_reg_num]) {
@@ -2949,6 +2958,8 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	mutex_lock(&exp_data.mutex);
 	if (!list_empty(&exp_data.list)) {
 		list_for_each_entry(exp_fhandler, &exp_data.list, link) {
+			if(exp_fhandler == NULL)
+				continue;
 			if (exp_fhandler->inserted &&
 					(exp_fhandler->func_attn != NULL))
 				exp_fhandler->func_attn(rmi4_data, intr[0]);
@@ -2956,6 +2967,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	}
 	mutex_unlock(&exp_data.mutex);
 
+	up(&work_sem);
 	return;
 }
 
@@ -4541,6 +4553,10 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->reportqueue = create_singlethread_workqueue("synaptics_wq");
 	INIT_WORK(&rmi4_data->reportwork, synaptics_rmi4_report_work);
 
+	//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture     
+	rmi4_data->speedup_resume_wq = create_singlethread_workqueue("speedup_resume_wq");
+	INIT_DELAYED_WORK(&rmi4_data->speed_up_work, speedup_synaptics_resume);
+
 	retval = synaptics_rmi4_irq_enable(rmi4_data, true);
 	if (retval < 0) {
 		dev_err(&client->dev,
@@ -4869,6 +4885,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if(rmi4_data->pwrrunning)
 		return 0 ;
 
+	down(&work_sem);
 	rmi4_data->pwrrunning = true ;
 
 	if(rmi4_data->smartcover_enable)
@@ -4883,12 +4900,12 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if(rmi4_data->gesture || rmi4_data->pdoze_enable) {
 		synaptics_enable_irqwake(rmi4_data,true);
 		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_OUT;
 	}
 
 	if (rmi4_data->staying_awake) {
 		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_OUT;
 	}
 
 	if (!rmi4_data->sensor_sleep) {
@@ -4899,7 +4916,9 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
 
+GO_OUT:
 	rmi4_data->pwrrunning = false ;
+	up(&work_sem);
 	return 0;
 }
 
@@ -4928,14 +4947,30 @@ void synaptics_rmi4_sync_lcd_resume(void) {
  */
 static int synaptics_rmi4_resume(struct device *dev)
 {
+	//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture   
+	queue_delayed_work(syna_rmi4_data->speedup_resume_wq, &syna_rmi4_data->speed_up_work, msecs_to_jiffies(10));
+	msleep(50);
+	return 0;
+}
+
+//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture
+static void speedup_synaptics_resume(struct work_struct *work)
+{
 	int retval;
 	unsigned char val=1;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	struct synaptics_rmi4_data *rmi4_data = syna_rmi4_data; 
 
 	if(rmi4_data->pwrrunning)
-		return 0 ;
+		return;
+
+	down(&work_sem);
+	synaptics_set_int_mask(syna_rmi4_data, 0);//mingqiang.guo add for black gesture failure
 
 	rmi4_data->pwrrunning = true ;
+
+	//software reset it
+	synaptics_rmi4_i2c_write(rmi4_data,rmi4_data->f01_cmd_base_addr,&val,sizeof(val));
+	msleep(200);
 
 	if(rmi4_data->smartcover_enable)
 		synaptics_rmi4_open_smartcover();
@@ -4949,17 +4984,17 @@ static int synaptics_rmi4_resume(struct device *dev)
 		synaptics_enable_irqwake(rmi4_data,false);
 		rmi4_data->pwrrunning = false ;
 		synaptics_rmi4_free_fingers(rmi4_data);
-		return 0;
+		goto GO_RETURN;;
 	}
 
 	if (rmi4_data->staying_awake) {
 		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_RETURN;;
 	}
 
 	if (!rmi4_data->sensor_sleep) {
 		rmi4_data->pwrrunning = false ;
-		return 0;
+		goto GO_RETURN;;
 	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
@@ -4971,11 +5006,13 @@ static int synaptics_rmi4_resume(struct device *dev)
 				"%s: Failed to reinit device\n",
 				__func__);
 		rmi4_data->pwrrunning = false ;
-		return retval;
+		goto GO_RETURN;;
 	}
 
 	rmi4_data->pwrrunning = false ;
-	return 0;
+GO_RETURN:
+	synaptics_set_int_mask(syna_rmi4_data, 1);//mingqiang.guo add for black gesture failure
+	up(&work_sem);
 }
 
 #ifndef CONFIG_FB
