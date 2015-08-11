@@ -11,12 +11,12 @@
  */
 
 &cci {
-	qcom,camera@20 {
+	qcom,camera@0 {
 		qcom,cam-vreg-min-voltage = <1050000 0 2800000 2800000>;
 		qcom,cam-vreg-max-voltage = <1050000 0 2800000 2800000>;
 	};
 
-	qcom,camera@6c {
+	qcom,camera@1 {
 		qcom,cam-vreg-min-voltage = < 2800000 0>;
 		qcom,cam-vreg-max-voltage = < 2800000 0>;
 	};

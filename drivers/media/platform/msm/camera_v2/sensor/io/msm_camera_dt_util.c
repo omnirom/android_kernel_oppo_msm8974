@@ -16,7 +16,7 @@
 #include "msm_camera_i2c_mux.h"
 #include "msm_cci.h"
 
-/*#define CONFIG_MSM_CAMERA_DT_DEBUG*/
+#define CONFIG_MSM_CAMERA_DT_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSM_CAMERA_DT_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)

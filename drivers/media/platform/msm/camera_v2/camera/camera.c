@@ -643,7 +643,7 @@ static int camera_v4l2_close(struct file *filep)
 		camera_pack_event(filep, MSM_CAMERA_DEL_SESSION, 0, -1, &event);
 
 		/* Donot wait, imaging server may have crashed */
-		msm_post_event(&event, -1);
+		msm_post_event(&event, 0);
 		msm_delete_command_ack_q(pvdev->vdev->num, 0);
 
 		/* This should take care of both normal close
