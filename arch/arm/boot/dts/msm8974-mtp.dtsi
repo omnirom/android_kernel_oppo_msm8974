@@ -13,11 +13,13 @@
 /include/ "msm8974-camera-sensor-mtp.dtsi"
 /include/ "msm8974-leds.dtsi"
 /include/ "dsi-panel-truly-1080p-video.dtsi"
-/include/ "dsi-panel-truly-1080p-cmd.dtsi"
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
 /include/ "dsi-panel-jdi-1440p-video.dtsi"
+/include/ "dsi-panel-rsp-1440p-video.dtsi"
+/include/ "dsi-panel-rsp-1440p-cmd.dtsi"
 /include/ "dsi-panel-jdi-1080p-cmd.dtsi"
 /include/ "dsi-panel-sharp-1080p-cmd.dtsi"
+/include/ "dsi-panel-truly-1080p-cmd.dtsi"
 / {
 	aliases {
 		serial0 = &blsp1_uart1;
