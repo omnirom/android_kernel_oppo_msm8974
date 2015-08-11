@@ -19,8 +19,8 @@
 #include "msm_camera_dt_util.h"
 
 /* Logging macro */
-/*#define MSM_SENSOR_DRIVER_DEBUG*/
-#undef CDBG
+#define MSM_SENSOR_DRIVER_DEBUG
+//#undef CDBG
 #ifdef MSM_SENSOR_DRIVER_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
 #else

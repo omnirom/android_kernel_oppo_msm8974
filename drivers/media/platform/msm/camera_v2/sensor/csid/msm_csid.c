@@ -31,6 +31,7 @@
 #define TRUE   1
 #define FALSE  0
 
+#define CONFIG_MSM_CAMERA_DT_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
