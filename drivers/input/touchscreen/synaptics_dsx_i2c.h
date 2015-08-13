@@ -74,11 +74,10 @@
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
 
-
-#define TP_VENDOR_WINTEK	1	//胜华
-#define TP_VENDOR_TPK		2	//TPK
-#define TP_VENDOR_TRULY		3	//信利
-#define TP_VENDOR_YOUNGFAST 4   //洋华
+#define TP_VENDOR_WINTEK    1	//wintek
+#define TP_VENDOR_TPK       2	//TPK
+#define TP_VENDOR_TRULY     3	//truly
+#define TP_VENDOR_YOUNGFAST 4   //youngfast
 
 #define TP_TYPE_MAX		2	//we only use wintek and tpk now.
 
@@ -226,9 +225,6 @@ struct synaptics_rmi4_data {
 	struct regulator *regulator;
 	struct mutex rmi4_reset_mutex;
 	struct mutex rmi4_io_ctrl_mutex;
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend;
-#endif
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;
@@ -295,7 +291,7 @@ struct synaptics_rmi4_data {
 	unsigned short points[2*7];
 	struct mutex ops_lock;
 	struct notifier_block fb_notif;
-	unsigned char gesture_flags;
+	unsigned char gesture_enable;
 	unsigned char glove_enable;  //glove mode
 	unsigned char pdoze_enable;  //pdoze mode
 	unsigned char smartcover_enable;  //smartcover mode
@@ -303,6 +299,11 @@ struct synaptics_rmi4_data {
 	unsigned char bcontinue;
 	struct workqueue_struct *reportqueue;  //for work queue
 	struct work_struct reportwork;
+	struct delayed_work  speed_up_work;//mingqiang.guo add for LCD show later when push power button  and  two click  in gesture  
+	struct workqueue_struct *speedup_resume_wq;
+	unsigned char double_tap_enable;
+	unsigned char circle_enable;
+	unsigned char arrow_enable;
 };
 
 enum exp_fn {
