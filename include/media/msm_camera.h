@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-#ifdef CONFIG_VENDOR_EDIT
+#if defined(CONFIG_VENDOR_EDIT) && !defined(CONFIG_OPPO_DEVICE_N3)
 #include <media/msm_camera_oppo.h>
 #else
 
