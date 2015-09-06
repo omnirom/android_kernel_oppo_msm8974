@@ -543,14 +543,14 @@ static long  p61_dev_ioctl(struct file *filp, unsigned int cmd,
 	//NFC_DBG_MSG(KERN_ALERT "p61_dev_ioctl-Enter %x arg = 0x%x\n",cmd, arg);
 	p61_dev = filp->private_data;
 	p61_dev->ven_gpio = P61_RST;
-	printk("yuyi,p61_dev_ioctl enter\n");
+	printk("p61_dev_ioctl enter\n");
 
 	switch (cmd) {
 	case P61_SET_PWR:
 		NFC_DBG_MSG(KERN_ALERT "P61_SET_PWR-Enter P61_RST = 0x%x\n", P61_RST);
 		if (arg == 2)
         {
-			printk("yuyi,p61_dev_ioctl   download firmware \n");
+			printk("p61_dev_ioctl   download firmware \n");
 			/* power on with firmware download (requires hw reset)*/
 			gpio_set_value(P61_RST, 1);
 			NFC_DBG_MSG(KERN_ALERT "p61_dev_ioctl-1\n");
@@ -565,13 +565,13 @@ static long  p61_dev_ioctl(struct file *filp, unsigned int cmd,
 			msleep(20);
 
 		} else if (arg == 1) {
-			printk("yuyi,p61_dev_ioctl   power on \n");
+			printk("p61_dev_ioctl   power on \n");
 			/* power on */
 			NFC_DBG_MSG(KERN_ALERT "p61_dev_ioctl-1 (arg = 1)\n");
 			gpio_set_value(P61_RST, 1);
 
 		} else  if (arg == 0) {
-			printk("yuyi,p61_dev_ioctl   power off \n");
+			printk("p61_dev_ioctl   power off \n");
 			/* power off */
 			NFC_DBG_MSG(KERN_ALERT "p61_dev_ioctl-0 (arg = 0)\n");
 			gpio_set_value(P61_RST, 0);
