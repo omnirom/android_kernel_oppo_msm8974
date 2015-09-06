@@ -1,4 +1,4 @@
-#ifdef CONFIG_VENDOR_EDIT
+#if defined(CONFIG_VENDOR_EDIT) && !defined(CONFIG_OPPO_DEVICE_N3)
 #include <media/msm_cam_sensor_oppo.h>
 #else
 

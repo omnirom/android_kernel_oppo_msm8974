@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_VENDOR_EDIT
+#if defined(CONFIG_VENDOR_EDIT) && !defined(CONFIG_OPPO_DEVICE_N3)
 #include <media/msmb_isp_oppo.h>
 #else
 
@@ -246,9 +246,11 @@ enum msm_vfe_reg_cfg_type {
 	VFE_READ_DMI_64BIT,
 	GET_SOC_HW_VER,
 	GET_MAX_CLK_RATE,
+#if !defined(CONFIG_OPPO_DEVICE_N3)
 	VFE_HW_UPDATE_LOCK,
 	VFE_HW_UPDATE_UNLOCK,
 	SET_WM_UB_SIZE,
+#endif
 };
 
 struct msm_vfe_cfg_cmd2 {
