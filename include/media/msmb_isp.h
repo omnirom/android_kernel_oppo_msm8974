@@ -9,9 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_VENDOR_EDIT
-#include <media/msmb_isp_oppo.h>
-#else
 
 #ifndef __MSMB_ISP__
 #define __MSMB_ISP__
@@ -246,9 +243,11 @@ enum msm_vfe_reg_cfg_type {
 	VFE_READ_DMI_64BIT,
 	GET_SOC_HW_VER,
 	GET_MAX_CLK_RATE,
+#if !defined(CONFIG_VENDOR_EDIT)
 	VFE_HW_UPDATE_LOCK,
 	VFE_HW_UPDATE_UNLOCK,
 	SET_WM_UB_SIZE,
+#endif
 };
 
 struct msm_vfe_cfg_cmd2 {
@@ -440,4 +439,3 @@ struct msm_isp_event_data {
 	_IOWR('V', BASE_VIDIOC_PRIVATE+13, struct msm_vfe_axi_stream_update_cmd)
 
 #endif /* __MSMB_ISP__ */
-#endif
