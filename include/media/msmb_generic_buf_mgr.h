@@ -1,4 +1,4 @@
-#ifdef CONFIG_VENDOR_EDIT
+#if defined(CONFIG_VENDOR_EDIT) && !defined(CONFIG_OPPO_DEVICE_N3)
 #include <media/msmb_generic_buf_mgr_oppo.h>
 #else
 

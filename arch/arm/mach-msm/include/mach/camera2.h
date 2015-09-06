@@ -11,7 +11,7 @@
  *
  */
 
-#ifdef CONFIG_VENDOR_EDIT
+#if defined(CONFIG_VENDOR_EDIT) && !defined(CONFIG_OPPO_DEVICE_N3)
 #include <mach/camera2_oppo.h>
 #else
 
