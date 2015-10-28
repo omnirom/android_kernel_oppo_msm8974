@@ -14,6 +14,7 @@
 #define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
 
 #include <linux/module.h>
+#include <linux/pcb_version.h>
 #include "msm_led_flash.h"
 
 #define FLASH_NAME "camera-led-flash"
@@ -284,8 +285,17 @@ torch_failed:
 static int __init msm_led_trigger_add_driver(void)
 {
 	CDBG("called\n");
+#if (!defined(CONFIG_OPPO_DEVICE_FIND7)) &&  (!defined(CONFIG_OPPO_DEVICE_FIND7WX))
 	return platform_driver_probe(&msm_led_trigger_driver,
 		msm_led_trigger_probe);
+#else
+	if (get_pcb_version() >= HW_VERSION__20) {
+		return platform_driver_probe(&msm_led_trigger_driver,
+			msm_led_trigger_probe);
+	} else {
+		return -ENODEV;
+	}
+#endif
 }
 
 static struct msm_flash_fn_t msm_led_trigger_func_tbl = {
