@@ -1077,14 +1077,19 @@ static int32_t msm_led_cci_probe(struct platform_device *pdev)
 static int __init msm_led_cci_add_driver(void)
 {
 	CDBG("called\n");
+#ifdef CONFIG_VENDOR_EDIT
 	if (get_pcb_version() >= HW_VERSION__20) {
-	    pr_err("It Find7S");
-	    return -ENODEV;
+		pr_err("It Find7S or N3");
+		return -ENODEV;
 	} else {
-	    pr_err("It Find7");
-	    return platform_driver_probe(&msm_led_cci_driver,
-		    msm_led_cci_probe);
+		pr_err("It Find7");
+		return platform_driver_probe(&msm_led_cci_driver,
+			msm_led_cci_probe);
 	}
+#else
+	return platform_driver_probe(&msm_led_cci_driver,
+		msm_led_cci_probe);
+#endif
 }
 
 static struct msm_led_cci_fn_t msm_led_cci_func_tbl = {

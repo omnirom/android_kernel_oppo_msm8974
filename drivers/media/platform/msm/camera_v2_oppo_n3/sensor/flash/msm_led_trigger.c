@@ -14,6 +14,7 @@
 #define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
 
 #include <linux/module.h>
+#include <linux/pcb_version.h>
 #include "msm_led_flash.h"
 
 #define FLASH_NAME "camera-led-flash"
@@ -284,8 +285,19 @@ torch_failed:
 static int __init msm_led_trigger_add_driver(void)
 {
 	CDBG("called\n");
+#ifdef CONFIG_VENDOR_EDIT
+	if (get_pcb_version() >= HW_VERSION__20) {
+		pr_err("It Find7S or N3");
+		return platform_driver_probe(&msm_led_trigger_driver,
+			msm_led_trigger_probe);
+	} else {
+		pr_err("It Find7");
+		return -ENODEV;
+	}
+#else
 	return platform_driver_probe(&msm_led_trigger_driver,
 		msm_led_trigger_probe);
+#endif
 }
 
 static struct msm_flash_fn_t msm_led_trigger_func_tbl = {
