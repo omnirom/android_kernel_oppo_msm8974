@@ -1438,6 +1438,7 @@ exit:
 	//pr_notice("%s: End of reflash process\n", __func__);
 
 	fwu->rmi4_data->stay_awake = false;
+        fwu->ext_data_source = NULL;
 
 	return retval;
 }
@@ -1784,7 +1785,9 @@ static ssize_t fwu_sysfs_image_size_store(struct device *dev,
 	fwu->image_size = size;
 	fwu->data_pos = 0;
 
-	kfree(fwu->ext_data_source);
+        if (fwu->ext_data_source) {
+                kfree(fwu->ext_data_source);
+        }
 	fwu->ext_data_source = kzalloc(fwu->image_size, GFP_KERNEL);
 	if (!fwu->ext_data_source) {
 		dev_err(&rmi4_data->i2c_client->dev,
@@ -1900,7 +1903,7 @@ exit_free_mem:
 
 static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 {
-	int retval;
+	int retval = 0;
 	unsigned char attr_count;
 
 	fwu = kzalloc(sizeof(*fwu), GFP_KERNEL);
@@ -2080,7 +2083,7 @@ static int init_synaptics_proc(void)
 {
 	int ret=0;
 
-	struct proc_dir_entry *proc_entry = create_proc_entry( "syna_write", 0666, NULL );
+	struct proc_dir_entry *proc_entry = create_proc_entry( "syna_write", 0664, NULL );
 
 	if (proc_entry == NULL)
 	{
