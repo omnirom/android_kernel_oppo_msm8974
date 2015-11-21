@@ -229,7 +229,6 @@ static void update_load_stats_state(void)
 	}
 	total_time += this_time;
 	load = report_load();
-	rq_depth = get_rq_info();
 	nr_cpu_online = num_online_cpus();
 	load_stats_state = IDLE;
 
@@ -257,13 +256,15 @@ static void update_load_stats_state(void)
 		total_time = 0;
 	}
 
-	if (rq_depth > rq_depth_threshold 
-			&& load < rq_depth_load_threshold 
+	if (load_stats_state != UP
 			&& nr_cpu_online < rq_depth_cpus_threshold 
-			&& load_stats_state != UP 
 			&& nr_cpu_online < max_cpus){
-		hotplug_info("UP because of rq_depth %d load %d\n", rq_depth, load);
-		load_stats_state = UP;
+		rq_depth = get_rq_info();
+		if (rq_depth > rq_depth_threshold
+				&& load < rq_depth_load_threshold){
+			hotplug_info("UP because of rq_depth %d load %d\n", rq_depth, load);
+			load_stats_state = UP;
+		}
 	}
 
 	if (input_boost_running && current_time > input_boost_end_time)
