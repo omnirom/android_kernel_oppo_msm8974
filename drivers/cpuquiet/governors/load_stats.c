@@ -180,7 +180,7 @@ static unsigned int report_load(void)
 		cur_load += calc_cur_load(cpu);
 	}
 	cur_load /= num_online_cpus();
-  	
+
 	return cur_load;
 }
 
@@ -229,7 +229,6 @@ static void update_load_stats_state(void)
 	}
 	total_time += this_time;
 	load = report_load();
-	rq_depth = get_rq_info();
 	nr_cpu_online = num_online_cpus();
 	load_stats_state = IDLE;
 
@@ -237,17 +236,17 @@ static void update_load_stats_state(void)
 		index = (nr_cpu_online - 1) * 2;
 		if ((nr_cpu_online < CONFIG_NR_CPUS) && (load >= load_threshold[index])) {
 			if (total_time >= twts_threshold[index]) {
-           		if (nr_cpu_online < max_cpus){
-           			hotplug_info("UP load=%d total_time=%lld load_threshold[index]=%d twts_threshold[index]=%d nr_cpu_online=%d min_cpus=%d max_cpus=%d\n", load, total_time, load_threshold[index], twts_threshold[index], nr_cpu_online, min_cpus, max_cpus);
-           	    	load_stats_state = UP;
-           	    }
+				if (nr_cpu_online < max_cpus){
+					hotplug_info("UP load=%d total_time=%lld load_threshold[index]=%d twts_threshold[index]=%d nr_cpu_online=%d min_cpus=%d max_cpus=%d\n", load, total_time, load_threshold[index], twts_threshold[index], nr_cpu_online, min_cpus, max_cpus);
+					load_stats_state = UP;
+				}
 			}
 		} else if (load <= load_threshold[index+1]) {
 			if (total_time >= twts_threshold[index+1] ) {
-           		if ((nr_cpu_online > 1) && (nr_cpu_online > min_cpus)){
-           			hotplug_info("DOWN load=%d total_time=%lld load_threshold[index+1]=%d twts_threshold[index+1]=%d nr_cpu_online=%d min_cpus=%d max_cpus=%d\n", load, total_time, load_threshold[index+1], twts_threshold[index+1], nr_cpu_online, min_cpus, max_cpus);
-                   	load_stats_state = DOWN;
-                }
+				if ((nr_cpu_online > 1) && (nr_cpu_online > min_cpus)){
+					hotplug_info("DOWN load=%d total_time=%lld load_threshold[index+1]=%d twts_threshold[index+1]=%d nr_cpu_online=%d min_cpus=%d max_cpus=%d\n", load, total_time, load_threshold[index+1], twts_threshold[index+1], nr_cpu_online, min_cpus, max_cpus);
+					load_stats_state = DOWN;
+				}
 			}
 		} else {
 			load_stats_state = IDLE;
@@ -257,13 +256,15 @@ static void update_load_stats_state(void)
 		total_time = 0;
 	}
 
-	if (rq_depth > rq_depth_threshold 
-			&& load < rq_depth_load_threshold 
+	if (load_stats_state != UP
 			&& nr_cpu_online < rq_depth_cpus_threshold 
-			&& load_stats_state != UP 
 			&& nr_cpu_online < max_cpus){
-		hotplug_info("UP because of rq_depth %d load %d\n", rq_depth, load);
-		load_stats_state = UP;
+		rq_depth = get_rq_info();
+		if (rq_depth > rq_depth_threshold
+				&& load < rq_depth_load_threshold){
+			hotplug_info("UP because of rq_depth %d load %d\n", rq_depth, load);
+			load_stats_state = UP;
+		}
 	}
 
 	if (input_boost_running && current_time > input_boost_end_time)
@@ -407,7 +408,7 @@ static ssize_t store_twts_threshold(struct cpuquiet_attribute *cattr,
 
 	for (i = 0; i < 8; i++)
 		twts_threshold[i]=user_twts_threshold[i];
-            
+
 	return count;
 }
 
@@ -440,7 +441,7 @@ static ssize_t store_load_threshold(struct cpuquiet_attribute *cattr,
 
 	for (i = 0; i < 8; i++)
 		load_threshold[i]=user_load_threshold[i];
-            
+
 	return count;
 }
 

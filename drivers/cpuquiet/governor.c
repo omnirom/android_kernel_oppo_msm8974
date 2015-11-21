@@ -96,6 +96,7 @@ int cpuquiet_switch_governor(struct cpuquiet_governor *gov)
 	if (gov) {
 		if (!try_module_get(cpuquiet_curr_governor->owner))
 			return -EINVAL;
+		pr_info(CPUQUIET_TAG "%s start %s\n", __func__, gov->name);
 		if (gov->start)
 			err = gov->start();
 		if (!err){
