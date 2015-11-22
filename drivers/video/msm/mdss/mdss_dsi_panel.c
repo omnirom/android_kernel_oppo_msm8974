@@ -37,6 +37,7 @@ DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #ifdef CONFIG_VENDOR_EDIT
 extern  int lm3630_bank_a_update_status(u32 bl_level);
+static bool find7s_lcd_rsp_ic = 0;
 
 /* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
 struct dsi_panel_cmds cabc_off_sequence;
@@ -601,31 +602,48 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 					return rc;
 				}
 				if (!pinfo->panel_power_on) {
-        			gpio_set_value((ctrl_pdata->rst_gpio), 1); /* GPIO_19 ---> 1 */
-                	mdelay(5);
-                	gpio_set_value((ctrl_pdata->rst_gpio), 0); /* GPIO_19 ---> 0 */
-                	mdelay(10);
-                	gpio_set_value((ctrl_pdata->rst_gpio), 1); /* GPIO_19 ---> 1 */
-                	mdelay(10);	
-                	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-						gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
-        			gpio_direction_output((ctrl_pdata->disp_en_gpio),1); /* GPIO_58 --->1 */
-					mdelay(2);
-					gpio_direction_output(46,1); 
-					mdelay(10);
-					gpio_direction_output(46,0); 
-					mdelay(2);
-					gpio_direction_output((ctrl_pdata->disp_en_gpio),0);
-					mdelay(10);
-					gpio_direction_output((ctrl_pdata->disp_en_gpio),1);
-					mdelay(2);
-					gpio_direction_output(46,1); 
-				}
-        	    if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
-        		    pr_debug("%s: Panel Not properly turned OFF\n", __func__);
-        		    ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
-        		    pr_debug("%s: Reset panel done\n", __func__);
-        	    }
+					if(find7s_lcd_rsp_ic == 1){
+						pr_info("%s rsp ic reset\n",__func__);
+						gpio_set_value((ctrl_pdata->rst_gpio), 0);
+    					gpio_direction_output((ctrl_pdata->disp_en_gpio),  0);
+						gpio_direction_output(46,0); 
+    					mdelay(2);
+            			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+    						gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+    					gpio_direction_output((ctrl_pdata->disp_en_gpio), 1);
+						mdelay(5);
+						gpio_direction_output(46,1); 
+    	  	   	 	 	mdelay(5);
+    	    			gpio_set_value((ctrl_pdata->rst_gpio), 1);
+    	   				mdelay(10);
+					} else {
+						pr_info("%s ntk ic reset\n",__func__);
+        				gpio_set_value((ctrl_pdata->rst_gpio), 1); /* GPIO_19 ---> 1 */
+                		mdelay(5);
+                		gpio_set_value((ctrl_pdata->rst_gpio), 0); /* GPIO_19 ---> 0 */
+                		mdelay(10);
+                		gpio_set_value((ctrl_pdata->rst_gpio), 1); /* GPIO_19 ---> 1 */
+                		mdelay(10);	
+                		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+							gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+        				gpio_direction_output((ctrl_pdata->disp_en_gpio),1); /* GPIO_58 --->1 */
+						mdelay(2);
+						gpio_direction_output(46,1); 
+						mdelay(10);
+						gpio_direction_output(46,0); 
+						mdelay(2);
+						gpio_direction_output((ctrl_pdata->disp_en_gpio), 0);
+						mdelay(10);
+						gpio_direction_output((ctrl_pdata->disp_en_gpio), 1);
+						mdelay(2);
+						gpio_direction_output(46,1); 
+					}
+        	    	if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
+        		    	pr_debug("%s: Panel Not properly turned OFF\n", __func__);
+        		    	ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
+        		    	pr_debug("%s: Reset panel done\n", __func__);
+        	    	}
+		  		}
         	} else {
         		gpio_set_value((ctrl_pdata->rst_gpio), 1); /* GPIO_19 ---> 1 */
 				mdelay(5);
@@ -1701,6 +1719,13 @@ int mdss_dsi_panel_init(struct device_node *node,
 						__func__, __LINE__);
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
+
+#ifdef CONFIG_VENDOR_EDIT
+	if(strstr(panel_name,"rsp 1440p video mode dsi panel"))
+		find7s_lcd_rsp_ic = 1;
+	if(strstr(panel_name,"rsp 1440p cmd mode dsi panel"))
+		find7s_lcd_rsp_ic = 1;
+#endif
 
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
