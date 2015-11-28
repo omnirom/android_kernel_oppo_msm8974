@@ -66,7 +66,13 @@
 
 #define HS_DETECT_PLUG_TIME_MS (5 * 1000)
 #define ANC_HPH_DETECT_PLUG_TIME_MS (5 * 1000)
+//liuyan 2013-1-2 for delay detect headset
+#ifdef CONFIG_VENDOR_EDIT
+#define HS_DETECT_PLUG_INERVAL_MS 500
+#else
 #define HS_DETECT_PLUG_INERVAL_MS 100
+#endif
+
 #define SWCH_REL_DEBOUNCE_TIME_MS 50
 #define SWCH_IRQ_DEBOUNCE_TIME_US 5000
 #define BTN_RELEASE_DEBOUNCE_TIME_MS 25
@@ -100,13 +106,8 @@
  * Invalid voltage range for the detection
  * of plug type with current source
  */
-#ifdef CONFIG_VENDOR_EDIT
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 80
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 100
-#else
 #define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 160
 #define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 265
-#endif
 
 /*
  * Threshold used to detect euro headset
@@ -144,8 +145,8 @@
 #define WCD9xxx_CS_THRESHED 10
 
 #ifdef CONFIG_OPPO_DEVICE_N3
-/* yan.yuan@PhoneDpt.AudioDrv, 2014/09/12, modify for 14021 headset */
-#define WCD9XXX_CS_IPHONE_HIG_THRD 765
+/* yan.yuan@PhoneDpt.AudioDrv, 2015/04/16, modify for 14021 selfiestick */
+#define WCD9XXX_CS_IPHONE_HIG_THRD 900
 #else
 #define WCD9XXX_CS_IPHONE_HIG_THRD 665
 #endif
