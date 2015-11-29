@@ -19,7 +19,8 @@ static struct task_struct *pic16f_fw_update_task = NULL;
 #if defined CONFIG_OPPO_DEVICE_FIND7 || defined CONFIG_OPPO_DEVICE_FIND7WX	//FIND7/FIND7WX:pic1503
 #define ERASE_COUNT   		96	//0x200-0x7FF
 #define READ_COUNT			95	//192
-#else	//FIND7OP or other pic1508
+
+#else	//FIND7OP or other pic1508 
 #define ERASE_COUNT   		224	//0x200-0xFFF
 #define READ_COUNT			223	//448
 #endif
@@ -32,6 +33,8 @@ static struct i2c_client *pic16F_client;
 int pic_fw_ver_count = sizeof(Pic16F_firmware_data);
 int pic_need_to_up_fw = 0;
 int pic_have_updated = 0;
+
+extern void mcu_en_gpio_set(int value);//sjc0623 add
 
 #ifndef CONFIG_VENDOR_EDIT
 //Fuchun.Liao@EXP.Driver,2014/04/11,modify for add regs check after fw update
@@ -250,6 +253,7 @@ int pic16f_fw_update(bool pull96)
 
 	//pull up GPIO96 to power on MCU1503
 	if(pull96){
+		mcu_en_gpio_set(0);//sjc0623 add
 		gpio_set_value(96,1);
 		rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 		if(rc < 0){
@@ -312,6 +316,7 @@ update_fw:
 	//pull down GPIO96 to power off MCU1503/1508
 	if(pull96) {
 		gpio_set_value(96,0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 		if(rc < 0){
 			pr_err("%s pull down GPIO96 fail\n",__func__);
@@ -323,6 +328,7 @@ update_fw:
 update_fw_err:
 	if(pull96){
 		gpio_set_value(96,0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 		if(rc < 0){
 			pr_err("%s pull down GPIO96 fail\n",__func__);
@@ -403,3 +409,5 @@ static void __exit pic16f_fastcg_exit(void)
 	i2c_del_driver(&pic16f_fastcg_driver);
 }
 module_exit(pic16f_fastcg_exit);
+
+
