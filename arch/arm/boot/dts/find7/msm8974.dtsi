@@ -911,10 +911,7 @@
 		qcom,scl-gpio = <&msmgpio 3 0>;
 		qcom,sda-gpio = <&msmgpio 2 0>;
 		qcom,master-id = <86>;
-		/*VENDOR_EDIT wangjc enable*/
-		/*status = "disabled";*/
-		status = "ok";
-		/*end add*/
+		status = "disabled";
 	};
 
 	i2c_2: i2c@f9924000 {
@@ -933,29 +930,7 @@
 		qcom,sda-gpio = <&msmgpio 6 0>;
 	};
 
-/*OPPO yuyi 2013-03-22 add begin for nfc*/
-/*#ifdef VENDOR_EDIT */
-	i2c_6: i2c@f9928000 {
-		cell-index = <6>;
-		compatible = "qcom,i2c-qup";
-		reg = <0xf9928000 0x1000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg-names = "qup_phys_addr";
-		interrupts = <0 100 0>;
-		interrupt-names = "qup_err_intr";
-		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <50000000>;
-		qcom,scl-gpio = <&msmgpio 30 0>;
-		qcom,sda-gpio = <&msmgpio 29 0>;
-		qcom,active-only;
-		qcom,master-id = <86>;
-	};
-/*#endif*/
-/*OPPO yuyi 2013-03-22 add end*/
-/*#ifdef VENDOR_EDIT*/
-/*wangjc delete*/
-	/*spi_0: spi@f9923000 {
+	spi_0: spi@f9923000 {
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -977,8 +952,7 @@
 		qcom,bam-consumer-pipe-index = <12>;
 		qcom,bam-producer-pipe-index = <13>;
 		qcom,master-id = <86>;
-	};*/
-/*wangjc del end*/
+	};
 
 	qcom,clock-krait@f9016000 {
 		compatible = "qcom,clock-krait-8974";
