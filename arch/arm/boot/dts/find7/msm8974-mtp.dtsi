@@ -194,29 +194,8 @@
 			ti,pwm-period = <255>;
 		};
 	};
-/*OPPO yuyi 2013-03-22 add begin for nfc*/
-//ifdef VENDOR_EDIT
-	i2c@f9928000 {
-		pn544-nxp-nfc@28 {
-			compatible = "pn544,nxp-nfc";
-			reg = <0x28>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <59 0x4>;
-			/*vdd_ana-supply = <&pm8941_S3A>;*/
-			pn544,irq-gpio = <&msmgpio 59 0x00>;
-			pn544,enable-gpio = <&msmgpio 13 0x00>;
-			pn544,update-gpio = <&msmgpio 12 0x00>;
-		};
-		/*OPPO Wangjc 2013-11-7 add begin for bq charger*/
-		bq24196_charger@6b {
-			status = "okay";
-			compatible = "ti,bq24196_charger";
-			reg = <0x6b>;
-		}; 
-		/*Wangjc add end*/
-	};
-//endif //VENDOR_EDIT
-/*OPPO yuyi 2013-03-22 add end*/
+/*yanghai add end */
+
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
 		label = "atmel_mxt_ts";
@@ -249,23 +228,7 @@
 			};
 		};
 	};
-	/*OPPO yuyi 2014-03-18 add end for NFC spi clk*/
-	/*ifdef  CONFIG_VENDOR_EDIT*/
-	spi@f9965000 {
-		p61-nxp-nfc@0 { //Slave driver and CS ID
-			compatible = "p61,nxp-nfc"; //Manufacture, and Model
-			reg = <0>; //Same as CS ID
-			spi-max-frequency = <4000000>; //Max Frequency for Device
-			spi-cs-high; //CS Active High
-			interrupt-parent = <&msmgpio>; //GPIO Handler
-			interrupts = <34 0>; //GPIO # and flags
-			p61-nxp-nfc,irq-gpio = <&msmgpio 34 0x00>; //Pass a GPIO
-			#spi-cpol; //CPOL bit set for SPI polarity
-			#spi-cpha; //CPHA bit set for SPI Phase
-		};
-	};
-	/*endif*/
-	/*OPPO yuyi 2014-03-18 add end for NFC spi clk*/
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";

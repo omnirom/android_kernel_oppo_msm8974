@@ -452,7 +452,7 @@ static int pn544_probe(struct i2c_client *client, const struct i2c_device_id *id
 /*OPPO yuyi 2014-05-24 modify end for rename clock name from core_clk to cxo_out_d1*/
 		if (p65T_clk == NULL) {
 			printk("yuyi,pn65T clk error!");
-			goto err_exit;
+			return  -ENODEV;
 		}
 
 		ret = clk_prepare_enable(p65T_clk);
@@ -475,7 +475,7 @@ static int pn544_probe(struct i2c_client *client, const struct i2c_device_id *id
 		dev_err(&client->dev,
 				"failed to allocate memory for module data\n");
 		ret = -ENOMEM;
-		goto err_exit;
+		return ret;
 	}
 
 	pn544_dev->irq_gpio = platform_data->irq_gpio;
