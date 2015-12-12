@@ -911,10 +911,7 @@
 		qcom,scl-gpio = <&msmgpio 3 0>;
 		qcom,sda-gpio = <&msmgpio 2 0>;
 		qcom,master-id = <86>;
-		/*VENDOR_EDIT wangjc enable*/
-		/*status = "disabled";*/
-		status = "ok";
-		/*end add*/
+		status = "disabled";
 	};
 
 	i2c_2: i2c@f9924000 {

@@ -28,12 +28,12 @@
 &sdhc_1 {
 	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
 	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
-	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
 };
 
-&ehci {
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_1 {
 	status = "ok";
-	qcom,usb2-enable-uicc;
-	hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
-	qcom,vdd-voltage-level = <1 2 3 5 7>;
 };
