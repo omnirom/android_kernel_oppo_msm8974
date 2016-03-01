@@ -47,12 +47,6 @@
 
 #include "queue.h"
 
-#ifdef CONFIG_VENDOR_EDIT 
-//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
-#include <mach/device_info.h>
-#include <linux/pcb_version.h>
-#endif /* VENDOR_EDIT */
-
 MODULE_ALIAS("mmc:block");
 #ifdef MODULE_PARAM_PREFIX
 #undef MODULE_PARAM_PREFIX
@@ -1149,7 +1143,7 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
  * Otherwise we don't understand what happened, so abort.
  */
 static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
-	struct mmc_blk_request *brq, int *ecc_err)
+	struct mmc_blk_request *brq, int *ecc_err, int *gen_err)
 {
 	bool prev_cmd_status_valid = true;
 	u32 status, stop_status = 0;
@@ -1187,6 +1181,16 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 	    (brq->cmd.resp[0] & R1_CARD_ECC_FAILED))
 		*ecc_err = 1;
 
+	/* Flag General errors */
+	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ)
+		if ((status & R1_ERROR) ||
+			(brq->stop.resp[0] & R1_ERROR)) {
+			pr_err("%s: %s: general error sending stop or status command, stop cmd response %#x, card status %#x\n",
+			       req->rq_disk->disk_name, __func__,
+			       brq->stop.resp[0], status);
+			*gen_err = 1;
+		}
+
 	/*
 	 * Check the current card state.  If it is in some data transfer
 	 * mode, tell it to stop (and hopefully transition back to TRAN.)
@@ -1206,6 +1210,13 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 			return ERR_ABORT;
 		if (stop_status & R1_CARD_ECC_FAILED)
 			*ecc_err = 1;
+		if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ)
+			if (stop_status & R1_ERROR) {
+				pr_err("%s: %s: general error sending stop command, stop cmd response %#x\n",
+				       req->rq_disk->disk_name, __func__,
+				       stop_status);
+				*gen_err = 1;
+			}
 	}
 
 	/* Check for set block count errors */
@@ -1470,11 +1481,6 @@ static inline void mmc_apply_rel_rw(struct mmc_blk_request *brq,
 	}
 }
 
-#ifdef CONFIG_VENDOR_EDIT
-//Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
-static int bad_micro_sd_card = 0;
-#endif /* VENDOR_EDIT */
-
 #define CMD_ERRORS							\
 	(R1_OUT_OF_RANGE |	/* Command argument out of range */	\
 	 R1_ADDRESS_ERROR |	/* Misaligned address */		\
@@ -1490,7 +1496,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 						    mmc_active);
 	struct mmc_blk_request *brq = &mq_mrq->brq;
 	struct request *req = mq_mrq->req;
-	int ecc_err = 0;
+	int ecc_err = 0, gen_err = 0;
 
 	/*
 	 * sbc.error indicates a problem with the set block count
@@ -1504,18 +1510,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	 */
 	if (brq->sbc.error || brq->cmd.error || brq->stop.error ||
 	    brq->data.error) {
-		
-#ifdef CONFIG_VENDOR_EDIT
-//Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
-		if ((card->host->index == 1) && bad_micro_sd_card) {
-			if (req) {
-				printk(KERN_ERR"%s: bad sd card had been detected, return MMC_BLK_ABORT\n", __func__);
-				return MMC_BLK_ABORT;
-			}
-		}
-#endif /* VENDOR_EDIT */
-		
-		switch (mmc_blk_cmd_recovery(card, req, brq, &ecc_err)) {
+		switch (mmc_blk_cmd_recovery(card, req, brq, &ecc_err, &gen_err)) {
 		case ERR_RETRY:
 			return MMC_BLK_RETRY;
 		case ERR_ABORT:
@@ -1547,6 +1542,14 @@ static int mmc_blk_err_check(struct mmc_card *card,
 		u32 status;
 		unsigned long timeout;
 
+		/* Check stop command response */
+		if (brq->stop.resp[0] & R1_ERROR) {
+			pr_err("%s: %s: general error sending stop command, stop cmd response %#x\n",
+			       req->rq_disk->disk_name, __func__,
+			       brq->stop.resp[0]);
+			gen_err = 1;
+		}
+
 		timeout = jiffies + msecs_to_jiffies(MMC_BLK_TIMEOUT_MS);
 		do {
 			int err = get_card_status(card, &status, 5);
@@ -1554,6 +1557,13 @@ static int mmc_blk_err_check(struct mmc_card *card,
 				pr_err("%s: error %d requesting status\n",
 				       req->rq_disk->disk_name, err);
 				return MMC_BLK_CMD_ERR;
+			}
+
+			if (status & R1_ERROR) {
+				pr_err("%s: %s: general error sending status command, card status %#x\n",
+				       req->rq_disk->disk_name, __func__,
+				       status);
+				gen_err = 1;
 			}
 
 			/* Timeout if the device never becomes ready for data
@@ -1575,21 +1585,19 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			 (R1_CURRENT_STATE(status) == R1_STATE_PRG));
 	}
 
+	/* if general error occurs, retry the write operation. */
+	if (gen_err) {
+		pr_warning("%s: retrying write for general error\n",
+				req->rq_disk->disk_name);
+		return MMC_BLK_RETRY;
+	}
+
 	if (brq->data.error) {
 		pr_err("%s: error %d transferring data, sector %u, nr %u, cmd response %#x, card status %#x\n",
 		       req->rq_disk->disk_name, brq->data.error,
 		       (unsigned)blk_rq_pos(req),
 		       (unsigned)blk_rq_sectors(req),
 		       brq->cmd.resp[0], brq->stop.resp[0]);
-
-#ifdef CONFIG_VENDOR_EDIT
-//Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
-		if ((card->host->index == 1) 
-			&& (rq_data_dir(req) == READ)) {
-			bad_micro_sd_card = 1;
-			printk(KERN_ERR"%s: bad sd card had been detected.\n", __func__);
-		}
-#endif /* VENDOR_EDIT */
 
 		if (rq_data_dir(req) == READ) {
 			if (ecc_err)
@@ -2698,18 +2706,6 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			mmc_stop_bkops(card);
 	}
 
-#ifdef CONFIG_VENDOR_EDIT
-//Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
-	if ((card->host->index == 1) && bad_micro_sd_card) {
-		if (req) {
-			blk_end_request_all(req, -EIO);
-			printk(KERN_ERR"%s: bad sd card had been detected. do nothing.\n", __func__);
-			ret = -EIO;
-			goto out;
-		}
-	}
-#endif /* VENDOR_EDIT */
-
 	ret = mmc_blk_part_switch(card, md);
 	if (ret) {
 		if (req) {
@@ -3103,6 +3099,11 @@ force_ro_fail:
 	return ret;
 }
 
+#define CID_MANFID_SANDISK	0x2
+#define CID_MANFID_TOSHIBA	0x11
+#define CID_MANFID_MICRON	0x13
+#define CID_MANFID_SAMSUNG	0x15
+
 static const struct mmc_fixup blk_fixups[] =
 {
 	MMC_FIXUP("SEM02G", CID_MANFID_SANDISK, 0x100, add_quirk,
@@ -3166,6 +3167,9 @@ static const struct mmc_fixup blk_fixups[] =
 	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_HYNIX, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_BROKEN_DATA_TIMEOUT),
 
+	MMC_FIXUP("CGND3R", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+		  MMC_QUIRK_SEC_SEARCH_TUNE),
+
 	END_FIXUP
 };
 
@@ -3173,49 +3177,12 @@ static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
 	char cap_str[10];
-#ifdef CONFIG_OPPO_DEVICE_INFO
-//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information	
-	char * manufacturerid;
-	struct manufacture_info ddr_info_1 = {
-		.version = "EDFA164A2PB",
-		.manufacture = "ELPIDA",
-	};
-	struct manufacture_info ddr_info_2 = {
-		.version = "K3QF7F70DM",
-		.manufacture = "SAMSUNG",
-	};	
-#endif /* VENDOR_EDIT */
 
 	/*
 	 * Check that the card supports the command class(es) we need.
 	 */
 	if (!(card->csd.cmdclass & CCC_BLOCK_READ))
 		return -ENODEV;
-
-#ifdef CONFIG_OPPO_DEVICE_INFO
-//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
-	switch (card->cid.manfid) {
-		case  0x11:
-			manufacturerid = "TOSHIBA";
-			break;
-		case  0x15:
-			manufacturerid = "SAMSUNG";
-			break;
-		case  0x45:
-			manufacturerid = "SANDISK";
-			break;
-		default:
-			manufacturerid = "unknown";
-			break;
-	}
-	if (!strcmp(mmc_card_id(card), "mmc0:0001")) {
-		register_device_proc("emmc", mmc_card_name(card), manufacturerid);
-		if (get_pcb_version() < HW_VERSION__20)
-			register_device_proc("ddr", ddr_info_1.version, ddr_info_1.manufacture);
-		else
-			register_device_proc("ddr", ddr_info_2.version, ddr_info_2.manufacture);
-	}
-#endif /* VENDOR_EDIT */	
 
 	md = mmc_blk_alloc(card);
 	if (IS_ERR(md))
