@@ -129,5 +129,6 @@
 								23 01 00 00 01 00 02 b0 03
 								];
 		/*yxr add end*/
+		qcom,ulps-enabled;
 	};
 };
