@@ -33,6 +33,8 @@ int pic_fw_ver_count = sizeof(Pic16F_firmware_data);
 int pic_need_to_up_fw = 0;
 int pic_have_updated = 0;
 
+extern void mcu_en_gpio_set(int value);//sjc0623 add
+
 #ifndef CONFIG_VENDOR_EDIT
 //Fuchun.Liao@EXP.Driver,2014/04/11,modify for add regs check after fw update
 int pic16f_fw_update(void)
@@ -50,7 +52,7 @@ int pic16f_fw_update(void)
 	//pic16F_client = client;
 	//buf = firmware_data;
     buf = Pic16F_firmware_data;
-	//erase address 0x200-0x7FF 
+	//erase address 0x200-0x7FF
 	for(i = 0;i < ERASE_COUNT;i++){
 		//first:set address
 		rc = i2c_smbus_write_i2c_block_data(pic16F_client,0x01,2,&addr_buf[0]);
@@ -69,7 +71,7 @@ int pic16f_fw_update(void)
 		//printk("lfc addr_buf[0]:0x%x,addr_buf[1]:0x%x\n",addr_buf[0],addr_buf[1]);
 		}
 		msleep(10);
-		
+
 	//write data begin
 		while(count < sizeof(Pic16F_firmware_data))
 		{
@@ -87,7 +89,7 @@ int pic16f_fw_update(void)
 			rc = i2c_smbus_write_i2c_block_data(pic16F_client,0x01,2,&addr_buf[0]);
 			if(rc < 0)
 				pr_err("%s i2c_write 0x01 error\n",__func__);
-			
+
 			//byte_count = buf[count];
 				//swap low byte and high byte begin
 				//because LSB is before MSB in buf,but pic16F receive MSB first
@@ -101,18 +103,18 @@ int pic16f_fw_update(void)
 				//swap low byte and high byte end
 				//write 16 bytes data to pic16F
 				i2c_smbus_write_i2c_block_data(pic16F_client,0x02,BYTES_TO_WRITE,&buf[count+BYTE_OFFSET]);
-			
+
 				i2c_smbus_write_i2c_block_data(pic16F_client,0x05,1,&zero_buf[0]);
 				i2c_smbus_read_i2c_block_data(pic16F_client,0x05,1,&temp_buf[0]);
 				//printk("lfc read 0x05,temp_buf[0]:0x%x\n",temp_buf[0]);
 
 				//write 16 bytes data to pic16F again
 				i2c_smbus_write_i2c_block_data(pic16F_client,0x02,BYTES_TO_WRITE,&buf[count+BYTE_OFFSET+BYTES_TO_WRITE]);
-			
+
 				i2c_smbus_write_i2c_block_data(pic16F_client,0x05,1,&zero_buf[0]);
 				i2c_smbus_read_i2c_block_data(pic16F_client,0x05,1,&temp_buf[0]);
 				//printk("lfc read again 0x05,temp_buf[0]:0x%x\n",temp_buf[0]);
-				
+
 				count = count + BYTE_OFFSET + 2*BYTES_TO_WRITE;
 
 				msleep(2);
@@ -138,7 +140,8 @@ static bool pic16f_fw_check(void)
 	unsigned char addr_buf[2] = {0x02,0x00};
 	unsigned char data_buf[32] = {0x0};
 	int rc,i,j,addr;
-	
+	int fw_line = 0;
+
 	//first:set address
 	rc = i2c_smbus_write_i2c_block_data(pic16F_client,0x01,2,&addr_buf[0]);
 	if(rc < 0){
@@ -150,7 +153,7 @@ static bool pic16f_fw_check(void)
 		i2c_smbus_read_i2c_block_data(pic16F_client,0x03,16,&data_buf[0]);
 		msleep(2);
 		i2c_smbus_read_i2c_block_data(pic16F_client,0x03,16,&data_buf[16]);
-		
+
 		addr = 0x200 + i * 16;
 		/*
 		pr_err("%s addr = 0x%x,%x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x \
@@ -160,8 +163,25 @@ static bool pic16f_fw_check(void)
 			data_buf[15],data_buf[16],data_buf[17],data_buf[18],data_buf[19],data_buf[20],data_buf[21],data_buf[22],
 			data_buf[23],data_buf[24],data_buf[25],data_buf[26],data_buf[27],data_buf[28],data_buf[29],data_buf[30],
 			data_buf[31]);*/
-		
+
 		//compare recv_buf with Pic16F_firmware_data[] begin
+#ifdef CONFIG_VENDOR_EDIT
+/* yangfangbiao@oneplus.cn, 2014/12/27  Add for  sync with android 4.4  */
+		if(addr == ((Pic16F_firmware_data[fw_line * 34 + 1] << 8) | Pic16F_firmware_data[fw_line * 34])){
+			for(j = 0;j < 32;j++){
+				if(data_buf[j] != Pic16F_firmware_data[fw_line * 34 + 2 + j]){
+					pr_err("%s fail,data_buf[%d]:0x%x != Pic16F_fimware_data[%d]:0x%x\n",__func__,
+						j,data_buf[j],(fw_line * 34 + 1 + j),Pic16F_firmware_data[fw_line * 34 + 1 + j]);
+					return FW_CHECK_FAIL;
+				}
+			}
+			fw_line++;
+		} else {
+			//pr_err("%s addr dismatch,addr:0x%x,pic_data:0x%x\n",__func__,
+					//addr,(Pic16F_firmware_data[fw_line * 34 + 1] << 8) | Pic16F_firmware_data[fw_line * 34]);
+		}
+
+#else
 		for(j = 0;j < 32;j++){
 			if(addr != Pic16F_firmware_data[i * 34])
 				continue;
@@ -172,10 +192,11 @@ static bool pic16f_fw_check(void)
 			}
 		}
 		//compare recv_buf with Pic16F_firmware_data[] end
+#endif /*CONFIG_VENDOR_EDIT*/
 	}
 	pr_info("%s success\n",__func__);
 	return FW_CHECK_SUCCESS;
-	
+
 i2c_err:
 	pr_err("%s failed\n",__func__);
 	return FW_CHECK_FAIL;
@@ -214,18 +235,18 @@ static int pic16f_fw_write(unsigned char *data_buf,unsigned int offset,unsigned 
 		//swap low byte and high byte end
 		//write 16 bytes data to pic16F
 		i2c_smbus_write_i2c_block_data(pic16F_client,0x02,BYTES_TO_WRITE,&data_buf[count+BYTE_OFFSET]);
-			
+
 		i2c_smbus_write_i2c_block_data(pic16F_client,0x05,1,&zero_buf[0]);
 		i2c_smbus_read_i2c_block_data(pic16F_client,0x05,1,&temp_buf[0]);
 		//printk("lfc read 0x05,temp_buf[0]:0x%x\n",temp_buf[0]);
 
 		//write 16 bytes data to pic16F again
 		i2c_smbus_write_i2c_block_data(pic16F_client,0x02,BYTES_TO_WRITE,&data_buf[count+BYTE_OFFSET+BYTES_TO_WRITE]);
-			
+
 		i2c_smbus_write_i2c_block_data(pic16F_client,0x05,1,&zero_buf[0]);
 		i2c_smbus_read_i2c_block_data(pic16F_client,0x05,1,&temp_buf[0]);
 		//printk("lfc read again 0x05,temp_buf[0]:0x%x\n",temp_buf[0]);
-				
+
 		count = count + BYTE_OFFSET + 2 * BYTES_TO_WRITE;
 
 		msleep(2);
@@ -236,7 +257,7 @@ static int pic16f_fw_write(unsigned char *data_buf,unsigned int offset,unsigned 
 	}
 	return 0;
 }
-	
+
 int pic16f_fw_update(bool pull96)
 {
 	unsigned char zero_buf[1] = {0};
@@ -245,22 +266,24 @@ int pic16f_fw_update(bool pull96)
 	int i,rc=0;
 	unsigned int addr = 0x200;
 	int download_again = 0;
-	
+
 	pr_err("%s pic16F_update_fw,erase data ing.......\n",__func__);
 
 	//pull up GPIO96 to power on MCU1503
 	if(pull96){
-		gpio_set_value(96,1);
-		rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
-		if(rc < 0){
-			pr_err("%s pull up GPIO96 fail\n",__func__);
-			return rc;
-		}
+		mcu_en_gpio_set(0);//sjc0623 add
+		/*sjc1018 delete*/
+		//gpio_set_value(96,1);
+		//rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
+		//if(rc < 0){
+		//	pr_err("%s pull up GPIO96 fail\n",__func__);
+		//	return rc;
+		//}
 		msleep(300);
 	}
 
 update_fw:
-	//erase address 0x200-0x7FF 
+	//erase address 0x200-0x7FF
 	for(i = 0;i < ERASE_COUNT;i++){
 		//first:set address
 		rc = i2c_smbus_write_i2c_block_data(pic16F_client,0x01,2,&addr_buf[0]);
@@ -279,7 +302,7 @@ update_fw:
 		//printk("lfc addr_buf[0]:0x%x,addr_buf[1]:0x%x\n",addr_buf[0],addr_buf[1]);
 	}
 	msleep(10);
-		
+
 	pic16f_fw_write(Pic16F_firmware_data,0,sizeof(Pic16F_firmware_data) - 34);
 
 	//fw check begin:read data from pic1503/1508,and compare it with Pic16F_firmware_data[]
@@ -300,33 +323,37 @@ update_fw:
 		goto update_fw_err;
 	}
 	//write 0x7F0~0x7FF end
-	
+
 	msleep(2);
 	//jump to app code begin
 	i2c_smbus_write_i2c_block_data(pic16F_client,0x06,1,&zero_buf[0]);
 	i2c_smbus_read_i2c_block_data(pic16F_client,0x06,1,&temp_buf[0]);
 	//jump to app code end
-	
+
 	pic_have_updated = 1;
-	
+
 	//pull down GPIO96 to power off MCU1503/1508
 	if(pull96) {
-		gpio_set_value(96,0);
-		rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
-		if(rc < 0){
-			pr_err("%s pull down GPIO96 fail\n",__func__);
-		}
-	}	
+		/*sjc1018 delete*/
+		//gpio_set_value(96,0);
+		mcu_en_gpio_set(1);//sjc0623 add
+		//rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
+		//if(rc < 0){
+		//	pr_err("%s pull down GPIO96 fail\n",__func__);
+		//}
+	}
 	pr_err("%s pic16F update_fw success\n",__func__);
 	return 0;
 
 update_fw_err:
 	if(pull96){
-		gpio_set_value(96,0);
-		rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
-		if(rc < 0){
-			pr_err("%s pull down GPIO96 fail\n",__func__);
-		}
+		/*sjc1018 delete*/
+		//gpio_set_value(96,0);
+		mcu_en_gpio_set(1);//sjc0623 add
+		//rc = gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
+		//if(rc < 0){
+		//	pr_err("%s pull down GPIO96 fail\n",__func__);
+		//}
 	}
 	pr_err("%s pic16F update_fw fail\n",__func__);
 	return 1;
@@ -344,7 +371,7 @@ static int pic16F_probe(struct i2c_client *client, const struct i2c_device_id *i
 	if(!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s pic16F_probe,i2c_func error\n",__func__);
 		goto err_check_functionality_failed;
-		}	
+		}
 	pic16F_client = client;
 	pic16f_fw_update_task = kthread_create(pic16f_fw_update_thread,NULL,"pic16f_fw_update_thread");
 	if(IS_ERR(pic16f_fw_update_task)){
@@ -353,12 +380,12 @@ static int pic16F_probe(struct i2c_client *client, const struct i2c_device_id *i
 		wake_up_process(pic16f_fw_update_task);
 	}
 	return 0;
-	
+
 err_check_functionality_failed:
 	pr_err("%s pic16F_probe fail\n",__func__);
 	return 0;
 }
-    
+
 
 static int pic16F_remove(struct i2c_client *client)
 {
