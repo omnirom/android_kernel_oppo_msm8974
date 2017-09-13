@@ -33,6 +33,7 @@ DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #ifdef CONFIG_MACH_OPPO
 extern int lm3630_bank_a_update_status(u32 bl_level);
+static bool find7s_lcd_rsp_ic = 0;
 #endif
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -240,7 +241,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			   __func__, __LINE__);
 	}
 
-	pr_debug("%s: enable = %d\n", __func__, enable);
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
@@ -254,23 +254,49 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			return rc;
 		}
 		if (!pinfo->cont_splash_enabled) {
-			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
-
-			for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
-				gpio_set_value((ctrl_pdata->rst_gpio),
-					pdata->panel_info.rst_seq[i]);
-				if (pdata->panel_info.rst_seq[++i])
-					usleep(pinfo->rst_seq[i] * 1000);
-			}
 #ifdef CONFIG_MACH_OPPO
-			if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio)) {
-				gpio_direction_output(ctrl_pdata->lcd_5v_en_gpio, 1);
-			}
+			if (find7s_lcd_rsp_ic == 1) {
+				pr_info("%s rsp ic reset\n",__func__);
+				gpio_set_value((ctrl_pdata->rst_gpio), 0);
+				gpio_direction_output((ctrl_pdata->disp_en_gpio), 0);
+
+				if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio))
+					gpio_direction_output(ctrl_pdata->lcd_5v_en_gpio, 0);
+
+				mdelay(2);
+				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+				gpio_direction_output((ctrl_pdata->disp_en_gpio), 1);
+
+				mdelay(5);
+				if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio))
+					gpio_direction_output(ctrl_pdata->lcd_5v_en_gpio, 1);
+
+				mdelay(5);
+				gpio_set_value((ctrl_pdata->rst_gpio), 1);
+				mdelay(10);
+			} else {
+#endif
+				pr_info("%s ntk ic reset\n",__func__);
+				if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+					gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+
+				for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
+					gpio_set_value((ctrl_pdata->rst_gpio),
+						pdata->panel_info.rst_seq[i]);
+					if (pdata->panel_info.rst_seq[++i])
+						usleep(pinfo->rst_seq[i] * 1000);
+				}
+#ifdef CONFIG_MACH_OPPO
+				if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio)) {
+					gpio_direction_output(ctrl_pdata->lcd_5v_en_gpio, 1);
+				}
 #endif
 #ifdef CONFIG_MACH_N3
-			if (gpio_is_valid(ctrl_pdata->disp_en_gpio76)) {
-				gpio_direction_output(ctrl_pdata->disp_en_gpio76, 1);
+				if (gpio_is_valid(ctrl_pdata->disp_en_gpio76)) {
+					gpio_direction_output(ctrl_pdata->disp_en_gpio76, 1);
+				}
+#endif
+#ifdef CONFIG_MACH_OPPO
 			}
 #endif
 		}
@@ -1351,6 +1377,13 @@ int mdss_dsi_panel_init(struct device_node *node,
 						__func__, __LINE__);
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
+
+#ifdef CONFIG_MACH_OPPO
+	if(strstr(panel_name,"rsp 1440p")) {
+		find7s_lcd_rsp_ic = 1;
+		pr_info("%s find7s_lcd_rsp_ic = 1\n",__func__);
+	}
+#endif
 
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {

@@ -848,7 +848,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	}
 
 	MDSS_XLOG(ctl->num, ctl->vsync_cnt);
-	pr_debug("start ctl=%u\n", ctl->num);
+	pr_info("start ctl=%u\n", ctl->num);
 
 	ctl->priv_data = ctx;
 	ctx->intf_type = ctl->intf_type;

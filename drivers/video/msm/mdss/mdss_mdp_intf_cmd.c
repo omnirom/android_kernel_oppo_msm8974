@@ -921,9 +921,8 @@ int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl)
 int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
-	struct mdss_mdp_ctl *sctl = NULL;
 	struct mdss_mdp_mixer *mixer;
-	int i, ret;
+	int ret;
 
 	pr_debug("%s:+\n", __func__);
 
@@ -933,35 +932,22 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 		return -ENODEV;
 	}
 
-        for (i = 0; i < MAX_SESSIONS; i++) {
-            ctx = &mdss_mdp_cmd_ctx_list[i];
-            if (ctx->ref_cnt == 0) {
-                ctx->ref_cnt++;
-                break;
-            } else {
-                if (mdss_panel_is_power_on(ctx->panel_power_state)) {
-                    pr_debug("%s: ctl_start with panel always on\n",
-                             __func__);
-                    mdss_mdp_cmd_restore(ctl);
-		    /* Turn on panel so that it can exit low power mode */
-		    return mdss_mdp_cmd_panel_on(ctl, sctl);
-                } else {
-                    pr_err("Intf %d already in use\n", i);
-                    return -EBUSY;
-                }
-            }
-        }
-	if (i == MAX_SESSIONS) {
-		pr_err("too many sessions\n");
-		return -ENOMEM;
+	if (ctl->num < MAX_SESSIONS) {
+		ctx = &mdss_mdp_cmd_ctx_list[ctl->num];
+		if (ctx->ref_cnt) {
+			pr_err("Intf %d already in use\n", ctl->num);
+			return -EBUSY;
+		}
+		pr_info("video Intf #%d\n", ctl->num);
+		ctx->ref_cnt++;
+	} else {
+		pr_err("Invalid intf number: %d\n", ctl->num);
+		return -EINVAL;
 	}
+
+	pr_info("start ctl=%u\n", ctl->num);
 
 	ctl->priv_data = ctx;
-	if (!ctx) {
-		pr_err("invalid ctx\n");
-		return -ENODEV;
-	}
-
 	ctx->ctl = ctl;
 	ctx->pp_num = mixer->num;
 	ctx->pp_timeout_report_cnt = 0;
