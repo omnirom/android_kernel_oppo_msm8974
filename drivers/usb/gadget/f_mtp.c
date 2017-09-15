@@ -1072,16 +1072,22 @@ out:
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "mtp_open\n");
+    if (_mtp_dev == NULL)
+        return -EINVAL;
+    
+	printk(KERN_INFO "mtp_open1\n");
+    
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
-
-	/* clear any error condition */
+        printk(KERN_INFO "mtp_open2\n");
+        
 	if (_mtp_dev->state != STATE_OFFLINE)
 		_mtp_dev->state = STATE_READY;
-
+    printk(KERN_INFO "mtp_open3\n");
+    
 	fp->private_data = _mtp_dev;
-	return 0;
+    printk(KERN_INFO "mtp_open4\n");
+    return 0;
 }
 
 static int mtp_release(struct inode *ip, struct file *fp)
