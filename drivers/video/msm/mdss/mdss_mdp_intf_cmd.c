@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+#define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/kernel.h>
 #include <linux/pm_runtime.h>
@@ -755,13 +756,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		return -ENODEV;
 	}
 
-	/* if power state already updated, skip this */
-	if (ctx->panel_power_state == panel_power_state)
-	    return 0;
-
+// maxwen: does not work with split panels
+#if 0
 	if (__mdss_mdp_cmd_is_panel_power_off(ctx)) {
 		pr_debug("%s: panel already off\n", __func__);
-			return 0;
+		return 0;
 	}
 
 	if (ctx->panel_power_state == panel_power_state) {
@@ -769,8 +768,9 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 			ctx->panel_power_state, panel_power_state);
 		return 0;
 	}
+#endif
 
-	pr_debug("%s: transition from %d --> %d\n", __func__,
+	pr_info("ctl=%u transition from %d --> %d\n", ctl->num,
 		ctx->panel_power_state, panel_power_state);
 
 	mutex_lock(&ctl->offlock);
@@ -815,7 +815,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	if (!turn_off_clocks)
 	    goto panel_events;
 
-	pr_debug("%s: turn off interface clocks\n", __func__);
+	pr_info("ctl=%u turn off interface clocks\n", ctl->num);
 
 	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
 		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
@@ -860,18 +860,22 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	flush_work(&ctx->pp_done_work);
 	mdss_mdp_cmd_tearcheck_setup(ctl, false);
 
+// maxwen: does not work with split panels
+#if 0
 	if (mdss_panel_is_power_on(panel_power_state)) {
 	    pr_debug("%s: intf stopped with panel on\n", __func__);
 	} else {
-        	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
-	    	                        	NULL, NULL);
+#endif
+		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
+			NULL, NULL);
 		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
-				        	NULL, NULL);
+			NULL, NULL);
+#if 0
 	}
-
+#endif
 panel_events:
 	if ((ctl->num == 0) && send_panel_events) {
-		pr_debug("%s: send panel events\n", __func__);
+		pr_info("ctl=%u send panel events\n", ctl->num);
 
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK,
                                       (void *) (long int) panel_power_state);
@@ -887,8 +891,11 @@ panel_events:
 	    pr_debug("%s: cmd_stop with panel always on\n", __func__);
 	    goto end;
 	}
-	pr_debug("%s: turn off panel\n", __func__);
-	memset(ctx, 0, sizeof(*ctx));
+	pr_info("ctl=%u turn off panel %d\n", ctl->num, ctx->ref_cnt);
+	ctx->ref_cnt--;
+	if (ctx->ref_cnt < 0)
+		ctx->ref_cnt = 0;
+
 	ctl->priv_data = NULL;
 
 	ctl->stop_fnc = NULL;
