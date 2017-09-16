@@ -31,7 +31,9 @@
 #include <linux/fb.h>
 #include <linux/proc_fs.h>
 #include <asm/uaccess.h>
+#ifdef CONFIG_OPPO_DEVICE_INFO
 #include <mach/device_info.h>
+#endif
 #include <linux/pcb_version.h>
 
 #include "synaptics_dsx.h"
@@ -1010,7 +1012,9 @@ static struct regulator *vdd_regulator=0;
 static struct regulator *vdd_regulator_i2c=0;
 static int syna_test_max_err_count = 10;
 static char synaptics_vendor_str[32];  //vendor string
+#ifdef CONFIG_OPPO_DEVICE_INFO
 static char *synaptics_id_str;
+#endif
 static unsigned int syna_lcd_ratio1;
 static unsigned int syna_lcd_ratio2;
 
@@ -4732,12 +4736,14 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		}
 	}
 
+#ifdef CONFIG_OPPO_DEVICE_INFO
 	//add by yubin for device info
 	if (rmi4_data->rmi4_mod_info.product_id_string[0])
 		synaptics_id_str = rmi4_data->rmi4_mod_info.product_id_string;
 	else
 		synaptics_id_str = "UNKNOWN";
 	register_device_proc("tp",synaptics_id_str,synaptics_vendor_str);
+#endif
 
 	synaptics_ts_init_virtual_key(rmi4_data);
 	synaptics_rmi4_init_touchpanel_proc();
