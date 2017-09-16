@@ -23,7 +23,9 @@
 #include <linux/platform_data/lm3630_bl.h>
 #include <mach/gpio.h>
 /* OPPO 2013-10-24 yxq Add begin for backlight info */
+#ifdef CONFIG_OPPO_DEVICE_INFO
 #include <mach/device_info.h>
+#endif
 /* OPPO 2013-10-24 yxq Add end */
 /* OPPO 2014-02-10 yxq Add begin for Find7S */
 #include <linux/pcb_version.h>
@@ -382,10 +384,12 @@ static int lm3630_probe(struct i2c_client *client,
 	struct lm3630_chip_data *pchip;
 	int ret;
 
-/* OPPO 2013-10-24 yxq Add begin for backlight info */
+#ifdef CONFIG_OPPO_DEVICE_INFO    
+    /* OPPO 2013-10-24 yxq Add begin for backlight info */
     unsigned int revision;
     static char *temp;
 /* OPPO 2013-10-24 yxq Add end */
+#endif
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
@@ -442,6 +446,7 @@ static int lm3630_probe(struct i2c_client *client,
 
 	/* chip initialize */
 	ret = lm3630_chip_init(pchip);
+#ifdef CONFIG_OPPO_DEVICE_INFO    
 /* OPPO 2013-10-24 yxq Add begin for reason */
     regmap_read(pchip->regmap,REG_REVISION,&revision);
     if (revision == 0x02) {
@@ -451,6 +456,7 @@ static int lm3630_probe(struct i2c_client *client,
     }
     register_device_proc("backlight", temp, "LM3630A");
 /* OPPO 2013-10-24 yxq Add end */
+#endif
 	if (ret < 0) {
 		dev_err(&client->dev, "fail : init chip\n");
 		goto err_chip_init;
