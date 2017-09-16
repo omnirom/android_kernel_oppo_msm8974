@@ -43,7 +43,7 @@ menuconfig OPPO_CAMERA
 
 if MSMB_CAMERA
 if OPPO_CAMERA
-source "drivers/media/platform/msm/camera_oppo_v2/Kconfig"
+source "drivers/media/platform/msm/camera_v2_oppo_n3/Kconfig"
 endif
 if !OPPO_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"

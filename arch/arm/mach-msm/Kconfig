@@ -707,6 +707,12 @@ config MSM_ADM3
 
 menu "MSM Board Selection"
 
+#OPPO 2013-02-19 zhenwx Add begin for distinguish oppo code 
+config VENDOR_EDIT
+	bool "VENDOR_EDIT"
+	default n
+#OPPO 2013-02-19 zhenwxAdd end 
+
 config MACH_HALIBUT
 	depends on ARCH_MSM7X01A
 	depends on MSM_STACKED_MEMORY
