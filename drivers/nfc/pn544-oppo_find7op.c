@@ -35,7 +35,9 @@
 #include <linux/regulator/consumer.h>
 /*OPPO yuyi 2013-10-24 add begin for nfc_devinfo*/
 #include <linux/pcb_version.h>
+#ifdef CONFIG_OPPO_DEVICE_INFO    
 #include <mach/device_info.h>
+#endif
 #include <linux/clk.h>
 #include <linux/of_gpio.h>
 /*OPPO yuyi 2013-10-24 add end for nfc_devinfo*/
@@ -398,8 +400,9 @@ static int pn544_probe(struct i2c_client *client, const struct i2c_device_id *id
 /*OPPO yuyi 2013-10-24 add begin for nfc_devinfo*/
 //	platform_data->clk_req_gpio = of_get_named_gpio(client->dev.of_node, "pn544,clk_req-gpio", 0);
 //	printk("yuyi,pn544_parse_dt pdata->clk_req_gpio = %d\n",platform_data->clk_req_gpio );
-	
+#ifdef CONFIG_OPPO_DEVICE_INFO    
 	register_device_proc("nfc", nfc_info.version, nfc_info.manufacture);
+#endif
 /*OPPO yuyi 2013-10-24 add end for nfc_devinfo*/
 	if (platform_data == NULL) 
 	{
