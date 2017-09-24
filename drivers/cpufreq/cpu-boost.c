@@ -46,7 +46,23 @@ static struct workqueue_struct *cpu_boost_wq;
 static struct work_struct input_boost_work;
 
 static unsigned int boost_ms;
-module_param(boost_ms, uint, 0644);
+static void enable_cpu_boost(bool on);
+
+static int set_boost_ms(const char *val, const struct kernel_param *kp)
+{
+	int rc = 0;
+	rc = param_set_uint(val, kp);
+	enable_cpu_boost(boost_ms != 0);
+	return rc;
+}
+
+static struct kernel_param_ops boost_ms_ops = {
+	.set = set_boost_ms,
+	.get = param_get_uint,
+};
+
+module_param_cb(boost_ms, &boost_ms_ops, &boost_ms,
+				S_IRUGO | S_IWUSR);
 
 static unsigned int sync_threshold;
 module_param(sync_threshold, uint, 0644);
@@ -55,10 +71,29 @@ static unsigned int input_boost_freq;
 module_param(input_boost_freq, uint, 0644);
 
 static unsigned int input_boost_ms = 40;
-module_param(input_boost_ms, uint, 0644);
+static void enable_input_boost(bool on);
+
+static int set_input_boost_ms(const char *val, const struct kernel_param *kp)
+{
+	int rc = 0;
+	rc = param_set_uint(val, kp);
+	enable_input_boost(input_boost_ms != 0);
+	return rc;
+}
+
+static struct kernel_param_ops input_boost_ms_ops = {
+	.set = set_input_boost_ms,
+	.get = param_get_uint,
+};
+
+module_param_cb(input_boost_ms, &input_boost_ms_ops, &input_boost_ms,
+				S_IRUGO | S_IWUSR);
 
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
+
+static bool cpu_boost_enabled;
+static bool input_boost_enabled;
 
 /*
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
@@ -353,6 +388,35 @@ static struct input_handler cpuboost_input_handler = {
 	.id_table       = cpuboost_ids,
 };
 
+static void enable_cpu_boost(bool on)
+{
+	if (on != cpu_boost_enabled){
+		cpu_boost_enabled = on;
+		pr_info("Enable cpu_boost %d\n", cpu_boost_enabled);
+		if (cpu_boost_enabled) {
+			cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
+			atomic_notifier_chain_register(&migration_notifier_head, &boost_migration_nb);
+		} else {
+			cpufreq_unregister_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
+			atomic_notifier_chain_unregister(&migration_notifier_head, &boost_migration_nb);
+		}
+	}
+}
+
+static void enable_input_boost(bool on)
+{
+	int ret = 0;
+	if (on != input_boost_enabled){
+		input_boost_enabled = on;
+		pr_info("Enable input_boost %d\n", input_boost_enabled);
+		if (input_boost_enabled) {
+			ret = input_register_handler(&cpuboost_input_handler);
+		} else {
+			input_unregister_handler(&cpuboost_input_handler);
+		}
+	}
+}
+
 static int cpu_boost_init(void)
 {
 	int cpu, ret;
@@ -376,10 +440,15 @@ static int cpu_boost_init(void)
 					"boost_sync/%d", cpu);
 		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 	}
-	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
-	atomic_notifier_chain_register(&migration_notifier_head,
-					&boost_migration_nb);
-	ret = input_register_handler(&cpuboost_input_handler);
+	cpu_boost_enabled = boost_ms != 0;
+	if (cpu_boost_enabled) {
+		cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
+		atomic_notifier_chain_register(&migration_notifier_head, &boost_migration_nb);
+	}
+	input_boost_enabled = input_boost_ms != 0;
+	if (input_boost_enabled) {
+		ret = input_register_handler(&cpuboost_input_handler);
+	}
 
 	return 0;
 }
